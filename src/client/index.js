@@ -47,6 +47,18 @@ module.exports = {
 .bullbear-avg{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--dsw-alias-border-l1);}
 .bullbear-avg-label{font-size:11px;color:var(--dsw-alias-label-secondary);}
 .bullbear-avg-val{font-size:13px;font-weight:700;}
+.bullbear-race{flex:0 0 auto;max-height:40%;overflow:hidden;border-bottom:1px solid var(--dsw-alias-border-l1);padding:6px 0;}
+.bullbear-race-title{display:flex;align-items:center;justify-content:space-between;padding:2px 12px 6px;font-size:11px;color:var(--dsw-alias-label-secondary);}
+.bullbear-race-line{display:flex;align-items:center;gap:8px;padding:3px 12px;position:relative;}
+.bullbear-race-rank{flex-shrink:0;width:18px;text-align:right;font-size:11px;font-weight:700;color:var(--dsw-alias-label-secondary);}
+.bullbear-race-ico{flex-shrink:0;font-size:14px;}
+.bullbear-race-name{flex-shrink:0;width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--dsw-alias-label-primary);}
+.bullbear-race-track{flex:1;height:8px;border-radius:4px;overflow:hidden;background:var(--dsw-alias-bg-layer-2);}
+.bullbear-race-pos{height:100%;border-radius:4px;min-width:4px;transition:none;}
+.bullbear-race-pos-up{background:var(--dsw-alias-state-error-primary);}
+.bullbear-race-pos-down{background:var(--dsw-alias-state-success-primary);}
+.bullbear-race-pos-flat{background:var(--dsw-alias-label-tertiary);}
+.bullbear-race-optime{font-size:10px;color:var(--dsw-alias-state-info-primary);}
 `)
 
     function el(type, props, children) { return React.createElement(type, props, children) }
@@ -136,6 +148,85 @@ module.exports = {
       ])
     }
 
+    // ---- 赛道赛跑:每只自选按即时速率实时推进,谁涨得快谁跑最前 ----
+    function Racetrack({ entries, view }) {
+      const [tick, setTick] = React.useState(0)
+      // 每位选手的累计赛道位置(按即时速率累积),ref 避免每帧整组件重算
+      const posRef = React.useRef({})
+
+      // 当 self 列表更新时,补全新选手;移除已不存在的
+      React.useEffect(function () {
+        const prev = posRef.current
+        const next = {}
+        if (entries) entries.forEach(function (e) {
+          if (prev[e.symbol] !== undefined) next[e.symbol] = prev[e.symbol]
+          else next[e.symbol] = 0
+        })
+        posRef.current = next
+      }, [entries])
+
+      // rAF:每帧把即时速率累积到位置(速率>0 前冲,<0 后撤-用跌幅做负速)
+      React.useEffect(function () {
+        let raf
+        let last = performance.now()
+        function frame(now) {
+          const dt = Math.min(0.1, (now - last) / 1000)
+          last = now
+          const pos = posRef.current
+          if (entries) entries.forEach(function (e) {
+            const r = e && typeof e.rate === 'number' ? e.rate : 0
+            // 速率(%/采样)放大成"跑距",正速推进,负速回退
+            pos[e.symbol] = (pos[e.symbol] || 0) + r * dt * 40
+          })
+          setTick(now)
+          raf = requestAnimationFrame(frame)
+        }
+        raf = requestAnimationFrame(frame)
+        return function () { cancelAnimationFrame(raf) }
+      }, [entries])
+
+      if (!entries || !entries.length) return el('div', { className: 'bullbear-race' }, [
+        el('div', { key: 't', className: 'bullbear-race-title' }, '🏁 行情赛跑'),
+      ])
+
+      // 按累计位置排序,取前 6 名展示
+      const sorted = entries.slice().sort(function (a, b) {
+        const da = posRef.current[a.symbol] || 0
+        const db = posRef.current[b.symbol] || 0
+        return db - da
+      }).slice(0, 6)
+
+      // 归一化到跑道宽度:最大位置=100%
+      const max = Math.max(0.0001, sorted.reduce(function (m, e) { return Math.max(m, posRef.current[e.symbol] || 0) }, 0))
+      const min = Math.min(0, sorted.reduce(function (m, e) { return Math.min(m, posRef.current[e.symbol] || 0) }, 0))
+      // 首名参考点:用最大者做满幅;负速选手即使落后也保留一条基线
+      const span = Math.max(1, max - min)
+      const tickNow = (view && view.stats && view.stats.marketTime) || ''
+
+      return el('div', { className: 'bullbear-race' }, [
+        el('div', { key: 't', className: 'bullbear-race-title' }, [
+          el('span', { key: 'l' }, '🏁 赛跑 · 涨最快在前'),
+          el('span', { key: 'time', className: 'bullbear-race-optime' }, (tickNow || '').toString()),
+        ]),
+        ...sorted.map(function (e, i) {
+          const p = posRef.current[e.symbol] || 0
+          const pct = (p - min) / span
+          const w = Math.max(0.04, Math.min(1, pct))
+          const up = e.pct > 0.05
+          const cls = up ? 'bullbear-race-pos-up' : (e.pct < -0.05 ? 'bullbear-race-pos-down' : 'bullbear-race-pos-flat')
+          const ico = up ? '🐂' : (e.pct < -0.05 ? '🐻' : '🐂')
+          return el('div', { key: 'r' + e.symbol, className: 'bullbear-race-line' }, [
+            el('span', { key: 'rank', className: 'bullbear-race-rank' }, String(i + 1)),
+            el('span', { key: 'ico', className: 'bullbear-race-ico' }, ico),
+            el('span', { key: 'name', className: 'bullbear-race-name' }, e.name),
+            el('div', { key: 'tr', className: 'bullbear-race-track' }, [
+              el('div', { key: 'pos', className: 'bullbear-race-pos ' + cls, style: { width: (w * 100).toFixed(1) + '%' } }),
+            ]),
+          ])
+        }),
+      ])
+    }
+
     // ---- 浮动面板:自选股列表 + 搜索添加/删除 ----
     function WatchlistPanel({ onClose, onChanged }) {
       const [view, setView] = React.useState(null)
@@ -184,11 +275,13 @@ module.exports = {
       }
 
       const empty = !(view && view.stats && view.stats.entries && view.stats.entries.length)
+      const entries = (view && view.stats && view.stats.entries) || []
       return el('div', { className: 'bullbear-panel' }, [
         el('div', { key: 'head', className: 'bullbear-panel-head' }, [
           el('span', { key: 't', className: 'bullbear-panel-title' }, '自选股'),
           el('button', { key: 'c', className: 'bullbear-panel-close', onClick: function () { onClose() } }, '✕'),
         ]),
+        el(Racetrack, { key: 'race', entries: entries, view: view }),
         el('div', { key: 'search', className: 'bullbear-panel-search' }, [
           el('input', {
             key: 'i', className: 'bullbear-panel-input', placeholder: '搜索股票(名称/代码)', value: query,
