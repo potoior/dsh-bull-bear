@@ -8,11 +8,12 @@ module.exports = {
     // ---- 样式 ----
     const styles = { insert(css) { const el = document.createElement('style'); el.textContent = css; document.head.appendChild(el) } }
     styles.insert(`
-@keyframes bullbear-run{0%{transform:translateY(0)}25%{transform:translateY(-3px)}50%{transform:translateY(-1px)}75%{transform:translateY(-4px)}100%{transform:translateY(0)}}
 @keyframes bullbear-groundmove{0%{background-position-x:0}100%{background-position-x:-24px}}
-.bullbear{position:fixed;left:16px;bottom:20px;z-index:1200;cursor:grab;user-select:none;pointer-events:auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));animation:bullbear-run 0.9s ease-in-out infinite;}
+.bullbear{position:fixed;left:16px;bottom:20px;z-index:1200;cursor:grab;user-select:none;pointer-events:auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));}
 .bullbear:active{cursor:grabbing;}
-.bullbear-ground{position:absolute;left:8px;right:8px;bottom:2px;height:6px;border-radius:3px;background-image:linear-gradient(90deg,var(--dsw-alias-border-l2) 2px,transparent 2px,transparent 12px,var(--dsw-alias-border-l1) 12px,transparent 13px,transparent 22px);background-size:24px 6px;background-repeat:repeat-x;animation:bullbear-groundmove 0.5s linear infinite;opacity:.6;pointer-events:none;}
+.bullbear-ground{position:absolute;left:8px;right:8px;bottom:2px;height:6px;border-radius:3px;background-image:linear-gradient(90deg,var(--dsw-alias-border-l2) 2px,transparent 2px,transparent 12px,var(--dsw-alias-border-l1) 12px,transparent 13px,transparent 22px);background-size:24px 6px;background-repeat:repeat-x;animation:bullbear-groundmove 0.3s linear infinite;opacity:.6;pointer-events:none;}
+.bullbear-dust{position:absolute;bottom:0;width:40px;height:26px;opacity:0;pointer-events:none;animation:bullbear-dustpuff 0.7s ease-out infinite;background:radial-gradient(ellipse at bottom,rgba(160,140,110,.5),transparent 70%);}
+@keyframes bullbear-dustpuff{0%{transform:translateX(0) scale(.3);opacity:0}30%{opacity:.7}100%{transform:translateX(-34px) translateY(-10px) scale(1.3);opacity:0}}
 .bullbear-badge{position:fixed;left:16px;bottom:20px;z-index:1201;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:12px;line-height:1.4;color:var(--dsw-alias-label-primary);pointer-events:auto;cursor:pointer;}
 .bullbear-up{color:var(--dsw-alias-state-error-primary);}
 .bullbear-down{color:var(--dsw-alias-state-success-primary);}
@@ -75,11 +76,10 @@ module.exports = {
     }
 
     // ---- 牛（SVG）----
-    function BullFox({ angle, phase }) {
+    function BullFox({ angle, phase, swing }) {
       // angle>0 抬头（看涨），angle<0 低头。头围绕颈部旋转 + 微位移增强表现
       const rot = angle * 0.6      // 旋转主导
       const headY = -angle * 0.9   // 平移辅助
-      const swing = 26
       // 每条腿的支点 x 坐标
       const legs = [40, 64, 88, 106]
       function Leg({ x, i, hipY, footLen, color }) {
@@ -111,11 +111,10 @@ module.exports = {
     }
 
     // ---- 熊（SVG）----
-    function Bear({ angle, phase }) {
+    function Bear({ angle, phase, swing }) {
       // angle 越负（下跌）熊头越低。旋转 + 下移增强低头
       const rot = angle * 0.6
       const headY = angle * 0.9 // 负angle=>正值=>translate下移
-      const swing = 22
       const legs = [40, 64, 88, 106]
       function Leg({ x, i, hipY, footLen, color }) {
         const a = legGeom(phase, i, swing)
@@ -236,16 +235,48 @@ module.exports = {
       const [pos, setPos] = React.useState(null)
       const [error, setError] = React.useState('')
       const [runT, setRunT] = React.useState(0)
+      const [vigor, setVigor] = React.useState(0)
+      const [stunt, setStunt] = React.useState(0) // 0..1 特技进度, 0=无特技
 
-      // 跑步动画循环:每帧推进相位,驱动四条腿摆动
-      const SPEED = 8 // 相位速度(周期/秒的倍数)
+      // 市场强度:由组合平均涨跌幅度|avgPct| 和速率|avgRate|共同决定,
+      // 驱动奔跑速度/腿摆幅度/跳跃高度/尘土浓度,让宠物随行情"越猛越狂"。
+      let vigorNow = 0
+      if (stat && stat.entries && stat.entries.length) {
+        const p = Math.abs(stat.avgPct || 0)
+        const r = Math.abs(stat.avgRate || 0)
+        vigorNow = Math.min(1, p / 1.5 + r / 0.5)
+      }
+
+      // 奔跑 + 特技动画循环(JS 驱动,随行情变速变幅)
+      // refs 让 rAF 循环读到最新 vigor,不重建 effect
+      const vigorRef = React.useRef(0)
+      vigorRef.current = vigorNow
+      const statRef = React.useRef(stat)
+      statRef.current = stat
+
       React.useEffect(function () {
         let raf
         let last = performance.now()
+        let stuntUntil = 0
+        let nextStunt = performance.now() + 3500 + Math.random() * 3500
         function tick(now) {
           const dt = (now - last) / 1000
           last = now
-          setRunT(function (t) { return (t + dt * SPEED) % 1 })
+          const v = vigorRef.current || 0.1
+          // 奔跑速度: 横盘慢(2周期/秒),行情猛时飞快(高达 9)
+          const speed = 2 + v * 7
+          setRunT(function (t) { return (t + dt * speed) % 1 })
+          // 特技:周期性随机触发(横盘也偶尔),持续 ~0.9s
+          let sv = 0
+          if (now < stuntUntil) {
+            sv = (now - (stuntUntil - 900)) / 900
+          } else if (now >= nextStunt) {
+            stuntUntil = now + 900
+            nextStunt = now + 4000 + Math.random() * 6000
+            sv = 0.0001
+          }
+          setStunt(sv)
+          setVigor(v)
           raf = requestAnimationFrame(tick)
         }
         raf = requestAnimationFrame(tick)
@@ -281,22 +312,39 @@ module.exports = {
 
       const pctText = stat && stat.avgPct !== undefined ? (stat.avgPct > 0 ? '+' : '') + Number(stat.avgPct).toFixed(2) + '%' : '--'
 
+      // 特技:跃起 + 甩头 + 尘土爆发
+      const stuntUp = stunt > 0 ? Math.sin(Math.min(stunt, 1) * Math.PI) * 40 * (0.6 + vigor * 0.8) : 0
+      const headWhip = stunt > 0 ? Math.sin(stunt * Math.PI * 2) * 45 : 0
+      const stuntGrow = stunt > 0 ? 1 + 0.18 * Math.sin(stunt * Math.PI) : 1
+      // 跑步颠簸:随相位上下的跳跃感,行情越猛颠得越厉害
+      const bob = Math.abs(Math.sin(runT * Math.PI * 2)) * (4 + vigor * 12)
+
+      // 尘土浓度与位置:左(牛)/右(熊)脚后方扬起
+      const dustOn = vigor > 0.45 || stunt > 0
+      const dustStyle = stunt > 0
+        ? { opacity: Math.sin(stunt * Math.PI), animationDuration: '0.45s' }
+        : { opacity: Math.min(0.8, vigor), animationDuration: String(1.3 - vigor * 0.9) + 's' }
+
       return el('div', {}, [
         el('div', {
           key: 'pet', className: 'bullbear',
-          style: pos ? { left: pos.x, top: pos.y } : null,
+          style: Object.assign(
+            { transform: `translateY(${stuntUp - bob}px) scale(${stuntGrow})` },
+            pos ? { left: pos.x, top: pos.y } : null,
+          ),
           onClick: function () { setPanel(!panel) },
           title: '点击打开自选面板',
         }, [
           mood === 'down'
-            ? el(Bear, { key: 'bear', angle: angle, phase: runT })
-            : el(BullFox, { key: 'bull', angle: angle, phase: runT }),
+            ? el(Bear, { key: 'bear', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34 })
+            : el(BullFox, { key: 'bull', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34 }),
           el('div', { key: 'badge', className: 'bullbear-badge' + (mood === 'up' ? ' bullbear-up' : (mood === 'down' ? ' bullbear-down' : ' bullbear-flat')) }, [
             el('span', { key: 'pv', className: 'bullbear-val' }, pctText),
             el('span', { key: 'tip', className: 'bullbear-tip' }, mood === 'up' ? '组合·牛抬头' : (mood === 'down' ? '组合·熊低头' : '组合·横盘')),
           ]),
           error ? el('div', { key: 'err', className: 'bullbear-error', style: { position: 'absolute' } }, error) : null,
           el('div', { key: 'ground', className: 'bullbear-ground' }),
+          dustOn ? el('div', { key: 'dust', className: 'bullbear-dust', style: dustStyle }) : null,
         ]),
         panel ? el(WatchlistPanel, {
           key: 'panel',
