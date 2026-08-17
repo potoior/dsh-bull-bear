@@ -238,6 +238,36 @@ module.exports = {
       const [vigor, setVigor] = React.useState(0)
       const [stunt, setStunt] = React.useState(0) // 0..1 特技进度, 0=无特技
 
+      // ---- 拖动状态(refs,避免每帧 setState) ----
+      const dragRef = React.useRef(null)
+
+      function onPetPointerDown(e) {
+        if (!(e && e.button !== undefined ? e.button === 0 : true)) return
+        const x = e.clientX, y = e.clientY
+        dragRef.current = { startX: x, startY: y, moved: false, origin: { left: pos ? pos.x : 16, top: pos ? pos.y : topDefault() } }
+        if (e.target && e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId)
+      }
+      function topDefault() {
+        // 默认 bottom:20px 换算成 top(在首帧 pos 为 null 时的初始落点)
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+        return vh - 150
+      }
+      function onPetPointerMove(e) {
+        const d = dragRef.current
+        if (!d) return
+        const dx = e.clientX - d.startX, dy = e.clientY - d.startY
+        if (!d.moved && Math.hypot(dx, dy) > 5) d.moved = true
+        if (d.moved) {
+          setPos({ x: d.origin.left + dx, y: d.origin.top + dy })
+        }
+      }
+      function onPetPointerUp(e) {
+        const d = dragRef.current
+        dragRef.current = null
+        if (d && d.moved) return // 拖动结束,不触发展开面板
+        e && e.preventDefault && e.preventDefault()
+      }
+
       // 市场强度基准:组合涨跌 ±20% 视为满强度(100%)。
       // vigor = |avgPct|/20 线性映射到 [0,1],20% 收益时达到 1(全速戏剧化跑)。
       // 速率只作小幅加成,让急涨急跌比缓步爬升更兴奋。
@@ -336,8 +366,14 @@ module.exports = {
             { transform: `translateY(${stuntUp - bob}px) scale(${stuntGrow})` },
             pos ? { left: pos.x, top: pos.y } : null,
           ),
-          onClick: function () { setPanel(!panel) },
-          title: '点击打开自选面板',
+          onPointerDown: onPetPointerDown,
+          onPointerMove: onPetPointerMove,
+          onPointerUp: function (e) {
+            const wasMoved = !!(dragRef.current && dragRef.current.moved)
+            onPetPointerUp(e)
+            if (!wasMoved) setPanel(!panel) // 未拖动=点击,展开/收起面板
+          },
+          title: '拖动移动 · 点击展开自选面板',
         }, [
           mood === 'down'
             ? el(Bear, { key: 'bear', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34 })
