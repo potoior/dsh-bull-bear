@@ -1,4 +1,8 @@
-export default {
+window.__ModuleLoader__.load({ id: "dsh-bull-bear", factory: (require) => {
+var module = { exports: {} }; var exports = module.exports;
+var React = (typeof globalThis !== "undefined" && globalThis.React) || (typeof window !== "undefined" && window.React) || (function () { try { return require("react") } catch (e) { return undefined } })() || ReactFallbackError();
+function ReactFallbackError() { throw new Error("dsh-bull-bear(client): React is not available (neither global nor require('react'))") }
+module.exports = {
   inject: ['connection'],
   apply(ctx) {
     // ---- 样式 ----
@@ -145,3 +149,4 @@ export default {
     })
   },
 }
+return module.exports; } });
