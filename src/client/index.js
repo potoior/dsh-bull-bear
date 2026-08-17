@@ -238,13 +238,17 @@ module.exports = {
       const [vigor, setVigor] = React.useState(0)
       const [stunt, setStunt] = React.useState(0) // 0..1 特技进度, 0=无特技
 
-      // 市场强度:由组合平均涨跌幅度|avgPct| 和速率|avgRate|共同决定,
-      // 驱动奔跑速度/腿摆幅度/跳跃高度/尘土浓度,让宠物随行情"越猛越狂"。
+      // 市场强度基准:组合涨跌 ±20% 视为满强度(100%)。
+      // vigor = |avgPct|/20 线性映射到 [0,1],20% 收益时达到 1(全速戏剧化跑)。
+      // 速率只作小幅加成,让急涨急跌比缓步爬升更兴奋。
+      const MAX_GAIN_PCT = 20
       let vigorNow = 0
       if (stat && stat.entries && stat.entries.length) {
         const p = Math.abs(stat.avgPct || 0)
         const r = Math.abs(stat.avgRate || 0)
-        vigorNow = Math.min(1, p / 1.5 + r / 0.5)
+        const pctVigor = p / MAX_GAIN_PCT
+        const rateBonus = Math.min(0.4, r / 2)
+        vigorNow = Math.min(1, pctVigor + rateBonus)
       }
 
       // 奔跑 + 特技动画循环(JS 驱动,随行情变速变幅)
