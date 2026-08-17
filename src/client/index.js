@@ -8,9 +8,11 @@ module.exports = {
     // ---- 样式 ----
     const styles = { insert(css) { const el = document.createElement('style'); el.textContent = css; document.head.appendChild(el) } }
     styles.insert(`
-@keyframes bullbear-breathe{0%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-4px) scale(1,0.985)}100%{transform:translateY(0) scale(1,1)}}
-.bullbear{position:fixed;left:16px;bottom:20px;z-index:1200;cursor:grab;user-select:none;pointer-events:auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));animation:bullbear-breathe 2.6s ease-in-out infinite;}
+@keyframes bullbear-run{0%{transform:translateY(0)}25%{transform:translateY(-3px)}50%{transform:translateY(-1px)}75%{transform:translateY(-4px)}100%{transform:translateY(0)}}
+@keyframes bullbear-groundmove{0%{background-position-x:0}100%{background-position-x:-24px}}
+.bullbear{position:fixed;left:16px;bottom:20px;z-index:1200;cursor:grab;user-select:none;pointer-events:auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));animation:bullbear-run 0.9s ease-in-out infinite;}
 .bullbear:active{cursor:grabbing;}
+.bullbear-ground{position:absolute;left:8px;right:8px;bottom:2px;height:6px;border-radius:3px;background-image:linear-gradient(90deg,var(--dsw-alias-border-l2) 2px,transparent 2px,transparent 12px,var(--dsw-alias-border-l1) 12px,transparent 13px,transparent 22px);background-size:24px 6px;background-repeat:repeat-x;animation:bullbear-groundmove 0.5s linear infinite;opacity:.6;pointer-events:none;}
 .bullbear-badge{position:fixed;left:16px;bottom:20px;z-index:1201;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:12px;line-height:1.4;color:var(--dsw-alias-label-primary);pointer-events:auto;cursor:pointer;}
 .bullbear-up{color:var(--dsw-alias-state-error-primary);}
 .bullbear-down{color:var(--dsw-alias-state-success-primary);}
@@ -63,16 +65,33 @@ module.exports = {
       return clamped
     }
 
+    // ---- 四条腿的对角跑步步态 ----
+    // phase: 0..1 循环;对角腿(0&3, 1&2)反相摆动,幅度 ~= speed*maxSwing
+    function legGeom(phase, i, maxSwing) {
+      // 对角同步: i 0 与 3 同相, 1 与 2 反相
+      const off = (i === 1 || i === 2) ? Math.PI : 0
+      const a = maxSwing * Math.sin(phase * Math.PI * 2 + off)
+      return a
+    }
+
     // ---- 牛（SVG）----
-    function BullFox({ angle }) {
+    function BullFox({ angle, phase }) {
       // angle>0 抬头（看涨），angle<0 低头。头围绕颈部旋转 + 微位移增强表现
       const rot = angle * 0.6      // 旋转主导
       const headY = -angle * 0.9   // 平移辅助
+      const swing = 26
+      // 每条腿的支点 x 坐标
+      const legs = [40, 64, 88, 106]
+      function Leg({ x, i, hipY, footLen, color }) {
+        const a = legGeom(phase, i, swing)
+        return el('g', { transform: `rotate(${a} ${x} ${hipY})` }, [
+          el('path', { d: `M${x} ${hipY} L${x} ${hipY + footLen}`, stroke: color, strokeWidth: 6, strokeLinecap: 'round' }),
+        ])
+      }
       return el('svg', { width: 150, height: 130, viewBox: '0 0 150 130' }, [
-        // 身体
+        // 身体(背后腿在身体下方, 绘制顺序: 后腿→身体→前腿? 简化为全部腿在身体前)
         el('path', { key: 'body', d: 'M20 95 C20 60 55 42 90 46 C120 49 140 66 138 92 C137 108 120 118 96 118 C60 118 20 110 20 95 Z', fill: '#d9a066' }),
-        // 腿
-        el('path', { key: 'leg1', d: 'M40 118 L36 128 M64 118 L60 128 M88 118 L84 128 M106 118 L110 128', stroke: '#7c4a21', strokeWidth: 6, strokeLinecap: 'round' }),
+        el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 108, footLen: 16, color: '#7c4a21' }))),
         // 尾巴（上扬=看涨）
         el('path', { key: 'tail', d: 'M20 90 C6 84 4 70 14 64 C20 60 24 66 20 72 C14 79 12 88 20 90 Z', fill: '#c9853f' }),
         // 头（整体随 angle 旋转+位移）
@@ -92,13 +111,21 @@ module.exports = {
     }
 
     // ---- 熊（SVG）----
-    function Bear({ angle }) {
+    function Bear({ angle, phase }) {
       // angle 越负（下跌）熊头越低。旋转 + 下移增强低头
       const rot = angle * 0.6
       const headY = angle * 0.9 // 负angle=>正值=>translate下移
+      const swing = 22
+      const legs = [40, 64, 88, 106]
+      function Leg({ x, i, hipY, footLen, color }) {
+        const a = legGeom(phase, i, swing)
+        return el('g', { transform: `rotate(${a} ${x} ${hipY})` }, [
+          el('path', { d: `M${x} ${hipY} L${x} ${hipY + footLen}`, stroke: color, strokeWidth: 6, strokeLinecap: 'round' }),
+        ])
+      }
       return el('svg', { width: 150, height: 130, viewBox: '0 0 150 130' }, [
         el('path', { key: 'body', d: 'M22 98 C22 62 58 44 92 48 C122 51 140 70 136 96 C133 112 114 122 90 122 C56 122 22 112 22 98 Z', fill: '#6b4f3a' }),
-        el('path', { key: 'leg1', d: 'M40 122 L36 129 M64 122 L60 129 M88 122 L84 129 M106 122 L110 129', stroke: '#3a2a1c', strokeWidth: 6, strokeLinecap: 'round' }),
+        el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 108, footLen: 16, color: '#3a2a1c' }))),
         el('path', { key: 'tail', d: 'M22 92 C8 88 4 98 10 102 C14 105 20 100 22 92 Z', fill: '#5a412f' }),
         el('g', { key: 'head', transform: `translate(0 ${-headY}) rotate(${rot} 118 42)`, style: { transformOrigin: '118px 42px' } }, [
           el('path', { key: 'headshape', d: 'M106 46 C104 30 112 20 126 20 C138 20 144 27 142 40 C140 51 132 56 120 55 C110 54 107 54 106 46 Z', fill: '#7d5c42' }),
@@ -208,6 +235,22 @@ module.exports = {
       const [panel, setPanel] = React.useState(false)
       const [pos, setPos] = React.useState(null)
       const [error, setError] = React.useState('')
+      const [runT, setRunT] = React.useState(0)
+
+      // 跑步动画循环:每帧推进相位,驱动四条腿摆动
+      const SPEED = 8 // 相位速度(周期/秒的倍数)
+      React.useEffect(function () {
+        let raf
+        let last = performance.now()
+        function tick(now) {
+          const dt = (now - last) / 1000
+          last = now
+          setRunT(function (t) { return (t + dt * SPEED) % 1 })
+          raf = requestAnimationFrame(tick)
+        }
+        raf = requestAnimationFrame(tick)
+        return function () { cancelAnimationFrame(raf) }
+      }, [])
 
       const refresh = React.useCallback(async function () {
         try {
@@ -246,13 +289,14 @@ module.exports = {
           title: '点击打开自选面板',
         }, [
           mood === 'down'
-            ? el(Bear, { key: 'bear', angle: angle })
-            : el(BullFox, { key: 'bull', angle: angle }),
+            ? el(Bear, { key: 'bear', angle: angle, phase: runT })
+            : el(BullFox, { key: 'bull', angle: angle, phase: runT }),
           el('div', { key: 'badge', className: 'bullbear-badge' + (mood === 'up' ? ' bullbear-up' : (mood === 'down' ? ' bullbear-down' : ' bullbear-flat')) }, [
             el('span', { key: 'pv', className: 'bullbear-val' }, pctText),
             el('span', { key: 'tip', className: 'bullbear-tip' }, mood === 'up' ? '组合·牛抬头' : (mood === 'down' ? '组合·熊低头' : '组合·横盘')),
           ]),
           error ? el('div', { key: 'err', className: 'bullbear-error', style: { position: 'absolute' } }, error) : null,
+          el('div', { key: 'ground', className: 'bullbear-ground' }),
         ]),
         panel ? el(WatchlistPanel, {
           key: 'panel',
