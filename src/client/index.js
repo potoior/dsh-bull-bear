@@ -122,11 +122,11 @@ module.exports = {
       ])
     }
 
-    // ---- 熊（SVG）----
+    // ---- 熊(SVG)---- 抽象几何版:圆头+圆耳+圆身,统一色块的扁平极简造型
     function Bear({ angle, phase, swing }) {
-      // angle 越负（下跌）熊头越低。旋转 + 下移增强低头
       const rot = angle * 0.6
-      const headY = angle * 0.9 // 负angle=>正值=>translate下移
+      const headY = angle * 0.9
+      const tailY = angle * 0.4 // 尾巴随情绪微垂/上翘
       const legs = [40, 64, 88, 106]
       function Leg({ x, i, hipY, footLen, color }) {
         const a = legGeom(phase, i, swing)
@@ -134,28 +134,25 @@ module.exports = {
           el('path', { d: `M${x} ${hipY} L${x} ${hipY + footLen}`, stroke: color, strokeWidth: 6, strokeLinecap: 'round' }),
         ])
       }
+      // 抽象剪影:两个大圆(头+身)重叠成整体,衔接处自然形成熊的体态
       return el('svg', { width: 150, height: 130, viewBox: '0 0 170 130' }, [
-        // 圆胖横长的身体(背高前略低)
-        el('path', { key: 'body', d: 'M22 98 C22 60 56 40 94 46 C122 49 140 64 138 92 C136 112 116 122 92 122 C54 122 22 110 22 98 Z', fill: '#6b4f3a' }),
-        el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 108, footLen: 16, color: '#3a2a1c' }))),
-        // 短圆尾巴(左侧)
-        el('circle', { key: 'tail', cx: 14, cy: 92, r: 7, fill: '#5a412f' }),
-        el('g', { key: 'head', transform: `translate(0 ${-headY}) rotate(${rot} 138 32)`, style: { transformOrigin: '138px 32px' } }, [
-          // 脖子:细一些,从身体前肩托起源头
-          el('path', { key: 'neck', d: 'M136 52 C136 46 138 40 140 36', stroke: '#5a412f', strokeWidth: 12, strokeLinecap: 'round', fill: 'none' }),
-          // 圆胖头:整体前出超过身体右缘(x138),主体在身体轮廓外
-          el('ellipse', { key: 'headshape', cx: 140, cy: 30, rx: 20, ry: 17, fill: '#7d5c42' }),
-          // 大圆耳:后耳在头顶靠前侧,前耳更靠前(侧视前上)
-          el('circle', { key: 'earBack', cx: 128, cy: 16, r: 8, fill: '#4a3326' }),
-          el('circle', { key: 'earFront', cx: 146, cy: 15, r: 8, fill: '#5a412f' }),
-          // 短圆吻部:朝右前方突出,浅色
-          el('ellipse', { key: 'snout', cx: 158, cy: 34, rx: 7, ry: 9, fill: '#c19a72' }),
-          // 圆鼻头:吻端,圆润
-          el('ellipse', { key: 'nose', cx: 163, cy: 31, rx: 3.4, ry: 3, fill: '#2a1c12' }),
-          // 圆眼睛:侧视应靠前(靠近吻部一侧),不在正中心
-          el('circle', { key: 'eye', cx: 147, cy: 23, r: 3, fill: '#0c0c0c' }),
-          // 嘴角
-          el('path', { key: 'mouth', d: 'M153 39 C156 41 160 41 162 39', stroke: '#3a2a1c', strokeWidth: 1.4, fill: 'none', strokeLinecap: 'round' }),
+        // 身体-一个大圆(抽象体块)
+        el('circle', { key: 'body', cx: 78, cy: 84, r: 42, fill: '#5a412f' }),
+        // 腿
+        el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 118, footLen: 10, color: '#3a2a1c' }))),
+        // 尾巴-小圆,随情绪摆
+        el('circle', { key: 'tail', cx: 40, cy: 66 + tailY, r: 9, fill: '#5a412f' }),
+        el('g', { key: 'head', transform: `translate(0 ${-headY}) rotate(${rot} 124 40)`, style: { transformOrigin: '124px 40px' } }, [
+          // 圆头-抽象大圆,与身体圆重叠相接成一体
+          el('circle', { key: 'headshape', cx: 122, cy: 40, r: 24, fill: '#6b4f3a' }),
+          // 圆耳-头两侧两个小圆(扁平抽象双耳)
+          el('circle', { key: 'earBack', cx: 106, cy: 24, r: 9, fill: '#4a3326' }),
+          el('circle', { key: 'earFront', cx: 136, cy: 23, r: 9, fill: '#4a3326' }),
+          // 圆鼻-吻端一个黑色小圆(抽象点状鼻)
+          el('circle', { key: 'nose', cx: 142, cy: 44, r: 3.5, fill: '#22150d' }),
+          // 圆眼-一个白色+黑瞳的抽象点眼
+          el('circle', { key: 'eye', cx: 129, cy: 34, r: 4, fill: '#f4ecd8' }),
+          el('circle', { key: 'pupil', cx: 130, cy: 35, r: 2, fill: '#22150d' }),
         ]),
       ])
     }
