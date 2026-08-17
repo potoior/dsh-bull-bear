@@ -1,0 +1,5 @@
+# dsh-bull-bear bundle layer: 牛熊行情宠物
+# 通过 `dsh plugin --profile web add dsh-bull-bear` 安装。
+- insert:
+    - id: bull-bear
+      name: 'dsh-bull-bear'

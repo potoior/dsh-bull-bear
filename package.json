@@ -1,0 +1,50 @@
+{
+  "name": "dsh-bull-bear",
+  "version": "0.1.0",
+  "description": "牛熊行情宠物 — DeepSeek Harness 实时行情状态宠物：涨得越快牛头抬得越高，跌得越快熊头低得越深。免费新浪实时行情，免登录。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "bull",
+    "bear",
+    "stock",
+    "a-share",
+    "pet",
+    "行情",
+    "宠物"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client/index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-connection": "^0.1.0-rc.6",
+    "react": "^18.3.1"
+  },
+  "files": [
+    "src/index.js",
+    "src/client/index.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ]
+}
