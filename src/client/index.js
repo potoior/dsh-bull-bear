@@ -122,37 +122,69 @@ module.exports = {
       ])
     }
 
-    // ---- 熊(SVG)---- 抽象几何版:圆头+圆耳+圆身,统一色块的扁平极简造型
+    // ---- 熊(SVG)---- 直立拟人奔跑版(熊大风格):红棕身、白胸带、圆头大鼻、绿眼红耳
     function Bear({ angle, phase, swing }) {
-      const rot = angle * 0.6
-      const headY = angle * 0.9
-      const tailY = angle * 0.4 // 尾巴随情绪微垂/上翘
-      const legs = [40, 64, 88, 106]
-      function Leg({ x, i, hipY, footLen, color }) {
-        const a = legGeom(phase, i, swing)
-        return el('g', { transform: `rotate(${a} ${x} ${hipY})` }, [
-          el('path', { d: `M${x} ${hipY} L${x} ${hipY + footLen}`, stroke: color, strokeWidth: 6, strokeLinecap: 'round' }),
-        ])
+      const rot = angle * 0.5
+      const headY = angle * 0.8
+      // 腿部摆动角:两条腿反相(跑步)
+      const legSwing = Math.sin(phase * Math.PI * 2) * (14 + swing * 0.4)
+      const legSwing2 = -legSwing
+      // 手臂反向摆动(与对侧腿同步,像人跑步)
+      const armSwing = -Math.sin(phase * Math.PI * 2) * (20 + swing * 0.5)
+      const armSwing2 = -armSwing
+      // 轻微前倾体现奔跑
+      const lean = 8
+
+      function Line({ x1, y1, x2, y2, w, color, cap }) {
+        return el('line', { x1: x1, y1: y1, x2: x2, y2: y2, stroke: color, strokeWidth: w, strokeLinecap: cap || 'round' })
       }
-      // 抽象剪影:两个大圆(头+身)重叠成整体,衔接处自然形成熊的体态
-      return el('svg', { width: 150, height: 130, viewBox: '0 0 170 130' }, [
-        // 身体-一个大圆(抽象体块)
-        el('circle', { key: 'body', cx: 78, cy: 84, r: 42, fill: '#5a412f' }),
-        // 腿
-        el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 118, footLen: 10, color: '#3a2a1c' }))),
-        // 尾巴-小圆,随情绪摆
-        el('circle', { key: 'tail', cx: 40, cy: 66 + tailY, r: 9, fill: '#5a412f' }),
-        el('g', { key: 'head', transform: `translate(0 ${-headY}) rotate(${rot} 124 40)`, style: { transformOrigin: '124px 40px' } }, [
-          // 圆头-抽象大圆,与身体圆重叠相接成一体
-          el('circle', { key: 'headshape', cx: 122, cy: 40, r: 24, fill: '#6b4f3a' }),
-          // 圆耳-头两侧两个小圆(扁平抽象双耳)
-          el('circle', { key: 'earBack', cx: 106, cy: 24, r: 9, fill: '#4a3326' }),
-          el('circle', { key: 'earFront', cx: 136, cy: 23, r: 9, fill: '#4a3326' }),
-          // 圆鼻-吻端一个黑色小圆(抽象点状鼻)
-          el('circle', { key: 'nose', cx: 142, cy: 44, r: 3.5, fill: '#22150d' }),
-          // 圆眼-一个白色+黑瞳的抽象点眼
-          el('circle', { key: 'eye', cx: 129, cy: 34, r: 4, fill: '#f4ecd8' }),
-          el('circle', { key: 'pupil', cx: 130, cy: 35, r: 2, fill: '#22150d' }),
+
+      return el('svg', { width: 150, height: 150, viewBox: '0 0 170 150' }, [
+        // 后腿(深色,在身体后)
+        el('g', { key: 'legback', transform: `rotate(${legSwing2} 96 120)` }, [
+          el(Line, { key: 'l', x1: 96, y1: 112, x2: 96, y2: 132, w: 14, color: '#7a4f35' }),
+          el('circle', { key: 'np', cx: 96, cy: 132, r: 8, fill: '#7a4f35' }),
+        ]),
+        // 身体:胸腔+骨盆两个圆润体块,白胸带
+        el('g', { key: 'body', transform: `rotate(${lean - rot} 92 92)` }, [
+          el('ellipse', { key: 'chest', cx: 92, cy: 78, rx: 30, ry: 24, fill: '#a25430' }),
+          // 白胸带(熊大标志)
+          el('path', { key: 'belly', d: 'M64 82 C76 62 96 62 108 74 C102 92 82 98 64 82 Z', fill: '#f4ecd8' }),
+          el('ellipse', { key: 'pelvis', cx: 80, cy: 106, rx: 22, ry: 16, fill: '#8a4a28' }),
+        ]),
+        // 前腿(稍浅,在身体前)
+        el('g', { key: 'legfront', transform: `rotate(${legSwing} 106 118)` }, [
+          el(Line, { key: 'l', x1: 106, y1: 108, x2: 106, y2: 130, w: 15, color: '#a25430' }),
+          el('circle', { key: 'np', cx: 106, cy: 130, r: 9, fill: '#a25430' }),
+        ]),
+        // 后臂(向后摆)
+        el('g', { key: 'armback', transform: `rotate(${armSwing2} 70 84)` }, [
+          el(Line, { key: 'a', x1: 74, y1: 84, x2: 62, y2: 104, w: 11, color: '#8a4a28' }),
+          el('circle', { key: 'paw', cx: 62, cy: 104, r: 7, fill: '#8a4a28' }),
+        ]),
+        // 前臂(向前摆)
+        el('g', { key: 'armfront', transform: `rotate(${armSwing} 116 82)` }, [
+          el(Line, { key: 'a', x1: 112, y1: 82, x2: 126, y2: 102, w: 12, color: '#a25430' }),
+          el('circle', { key: 'paw', cx: 126, cy: 102, r: 7, fill: '#a25430' }),
+        ]),
+        // 短尾(左)
+        el('circle', { key: 'tail', cx: 52, cy: 104, r: 6, fill: '#6b3c22' }),
+        // 头:圆头、红耳、绿眼、大圆鼻
+        el('g', { key: 'head', transform: `translate(${-headY * 0.2} ${-headY}) rotate(${rot} 124 40)`, style: { transformOrigin: '124px 40px' } }, [
+          el('circle', { key: 'headshape', cx: 124, cy: 34, r: 26, fill: '#b06030' }),
+          // 红耳朵(熊大特征)
+          el('circle', { key: 'earBack', cx: 108, cy: 14, r: 9, fill: '#c84030' }),
+          el('circle', { key: 'earFront', cx: 138, cy: 13, r: 9, fill: '#c84030' }),
+          // 大圆吻部(前伸)
+          el('ellipse', { key: 'snout', cx: 146, cy: 44, rx: 9, ry: 11, fill: '#e8c9a0' }),
+          // 大圆鼻(熊大标志大鼻)
+          el('circle', { key: 'nose', cx: 150, cy: 42, r: 5, fill: '#3a2a1c' }),
+          // 绿眼(熊大特征)
+          el('circle', { key: 'eye', cx: 132, cy: 28, r: 5, fill: '#f4ecd8' }),
+          el('circle', { key: 'iris', cx: 133, cy: 29, r: 3, fill: '#3f7d3a' }),
+          el('circle', { key: 'pupil', cx: 133.8, cy: 29.5, r: 1.4, fill: '#1c1c1c' }),
+          // 嘴巴
+          el('path', { key: 'mouth', d: 'M142 50 C146 53 152 53 155 50', stroke: '#3a2a1c', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round' }),
         ]),
       ])
     }
