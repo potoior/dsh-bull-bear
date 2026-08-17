@@ -148,59 +148,19 @@ module.exports = {
       ])
     }
 
-    // ---- 赛道赛跑:每只自选按即时速率实时推进,谁涨得快谁跑最前 ----
+    // ---- 赛道赛跑:进度条宽度以涨幅最大者为满幅(100%),其他按比例缩放 ----
     function Racetrack({ entries, view }) {
-      const [tick, setTick] = React.useState(0)
-      // 每位选手的累计赛道位置(按即时速率累积),ref 避免每帧整组件重算
-      const posRef = React.useRef({})
-
-      // 当 self 列表更新时,补全新选手;移除已不存在的
-      React.useEffect(function () {
-        const prev = posRef.current
-        const next = {}
-        if (entries) entries.forEach(function (e) {
-          if (prev[e.symbol] !== undefined) next[e.symbol] = prev[e.symbol]
-          else next[e.symbol] = 0
-        })
-        posRef.current = next
-      }, [entries])
-
-      // rAF:每帧把即时速率累积到位置(速率>0 前冲,<0 后撤-用跌幅做负速)
-      React.useEffect(function () {
-        let raf
-        let last = performance.now()
-        function frame(now) {
-          const dt = Math.min(0.1, (now - last) / 1000)
-          last = now
-          const pos = posRef.current
-          if (entries) entries.forEach(function (e) {
-            const r = e && typeof e.rate === 'number' ? e.rate : 0
-            // 速率(%/采样)放大成"跑距",正速推进,负速回退
-            pos[e.symbol] = (pos[e.symbol] || 0) + r * dt * 40
-          })
-          setTick(now)
-          raf = requestAnimationFrame(frame)
-        }
-        raf = requestAnimationFrame(frame)
-        return function () { cancelAnimationFrame(raf) }
-      }, [entries])
-
       if (!entries || !entries.length) return el('div', { className: 'bullbear-race' }, [
         el('div', { key: 't', className: 'bullbear-race-title' }, '🏁 行情赛跑'),
       ])
 
-      // 按累计位置排序,取前 6 名展示
+      // 按涨跌幅排序(涨幅最大在最上),取前 6 展示
       const sorted = entries.slice().sort(function (a, b) {
-        const da = posRef.current[a.symbol] || 0
-        const db = posRef.current[b.symbol] || 0
-        return db - da
+        return (b.pct || 0) - (a.pct || 0)
       }).slice(0, 6)
 
-      // 归一化到跑道宽度:最大位置=100%
-      const max = Math.max(0.0001, sorted.reduce(function (m, e) { return Math.max(m, posRef.current[e.symbol] || 0) }, 0))
-      const min = Math.min(0, sorted.reduce(function (m, e) { return Math.min(m, posRef.current[e.symbol] || 0) }, 0))
-      // 首名参考点:用最大者做满幅;负速选手即使落后也保留一条基线
-      const span = Math.max(1, max - min)
+      // 满幅基准 = 涨幅绝对值最大的那只,它占满 100%,其余按比例
+      const maxAbs = Math.max(0.0001, sorted.reduce(function (m, e) { return Math.max(m, Math.abs(e.pct || 0)) }, 0))
       const tickNow = (view && view.stats && view.stats.marketTime) || ''
 
       return el('div', { className: 'bullbear-race' }, [
@@ -209,12 +169,12 @@ module.exports = {
           el('span', { key: 'time', className: 'bullbear-race-optime' }, (tickNow || '').toString()),
         ]),
         ...sorted.map(function (e, i) {
-          const p = posRef.current[e.symbol] || 0
-          const pct = (p - min) / span
-          const w = Math.max(0.04, Math.min(1, pct))
+          // 比例 = 该股涨跌幅 / 最大涨跌幅;最大者为满格 100%
+          const w = Math.max(0.04, Math.min(1, Math.abs(e.pct || 0) / maxAbs))
           const up = e.pct > 0.05
           const cls = up ? 'bullbear-race-pos-up' : (e.pct < -0.05 ? 'bullbear-race-pos-down' : 'bullbear-race-pos-flat')
           const ico = up ? '🐂' : (e.pct < -0.05 ? '🐻' : '🐂')
+          const pctText = (e.pct > 0 ? '+' : '') + Number(e.pct).toFixed(2) + '%'
           return el('div', { key: 'r' + e.symbol, className: 'bullbear-race-line' }, [
             el('span', { key: 'rank', className: 'bullbear-race-rank' }, String(i + 1)),
             el('span', { key: 'ico', className: 'bullbear-race-ico' }, ico),
@@ -222,6 +182,7 @@ module.exports = {
             el('div', { key: 'tr', className: 'bullbear-race-track' }, [
               el('div', { key: 'pos', className: 'bullbear-race-pos ' + cls, style: { width: (w * 100).toFixed(1) + '%' } }),
             ]),
+            el('span', { key: 'pct', className: 'bullbear-row-pct ' + cls }, pctText),
           ])
         }),
       ])
