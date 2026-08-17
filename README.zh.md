@@ -7,10 +7,11 @@
 ## 功能
 
 - **实时免费行情**：新浪 `hq.sinajs.cn` 公开接口，免登录、免 API key，Node 直连，一次批量拉取多标的。
-- **牛/熊随行情切换**：自选篮整体上涨显示牛（🐂），下跌显示熊（🐻）。
-- **速度决定姿态**：涨得越快牛头抬得越高（抬头角度与速率成正比），跌得越快熊头低得越深。
-- **标的多选**：默认上证/深成/创业板/茅台/宁德，可增删自选（host 持久化到 `.bull-bear-watchlist.json`）。
-- **悬浮可拖**：注册进官方 `shell.overlay` 槽位，点击收起为徽章。
+- **组合驱动牛/熊**：宠物反映**整个自选篮的平均**涨跌——组合上涨显示牛（🐂），下跌显示熊（🐻）。
+- **速度决定姿态**：组合涨得越快牛头抬得越高（抬头角度与速率成正比），跌得越快熊头低得越深。
+- **自选面板**：点宠物打开侧边面板，逐只列出自选的红/绿涨跌，可按名称/代码搜索添加、删除。
+- **可应对大量标的**：最多 200 只，按每片 500 只分片抓取，避开新浪单 URL 上限；自选由 host 持久化到 `.bull-bear-watchlist.json`。
+- **悬浮可点击**：注册进官方 `shell.overlay` 槽位，点击宠物开关面板。
 
 ## 安装
 
@@ -26,8 +27,9 @@ dsh plugin --profile web add /path/to/dsh-bull-bear
 
 ## 使用
 
-- **自选管理**：编辑 `<workspace>/.bull-bear-watchlist.json` 的 `symbols` 数组（如 `["sh000001","sz399001","sz300750"]`），host 会读取并每小时/每次启动应用。
-- **点击收起/展开**：点击宠物收起为 `🐂` 徽章，再点展开。
+- **自选面板**：点击宠物打开侧边面板。逐只列出每只自选的最新涨跌（红=涨、绿=跌，符合 A 股配色），底部显示组合平均；可按名称/代码搜索添加，可删除任意自选。
+- **持久化**：改动写入 `<workspace>/.bull-bear-watchlist.json`，启动时重新应用，最多 200 只。
+- **点击开关面板 / 收起**：点击宠物切换面板；也可单独收起。
 - **刷新频率**：默认 5 秒，见下方配置文件说明。
 
 ### 配置
@@ -42,10 +44,10 @@ dsh plugin --profile web add /path/to/dsh-bull-bear
 
 ## 原理
 
-- **Host 半**（`src/index.js`）：每 `refreshMs` 用原生 `fetch` 请求新浪 `hq.sinajs.cn`，GBK 解码，计算每个标的相对昨收的涨跌幅（`pct`）与相对上次采样的速率（`rate`），汇总出代表行情（涨跌幅绝对值最大者）与平均速率。通过官方 `ctx.connection.rpc.handle('/bullbear'...)` 通道暴露。
-- **Client 半**（`src/client/index.js`）：轮询 RPC，用 `rateToAngle(rate, sensitivity)` 把速率夹到 `[-70, 70]` 度，牛头/熊头绕颈部旋转并位移。注册进 `shell.overlay` 槽位。
+- **Host 半**（`src/index.js`）：每 `refreshMs` 用原生 `fetch` 请求新浪 `hq.sinajs.cn`，GBK 解码，计算每个标的相对昨收的涨跌幅（`pct`）与相对上次采样的速率（`rate`），再求**组合平均**（`avgPct`、`avgRate`）。新浪对超过约 800 只的一个 URL 会返回 HTTP 431，因此按**每片 500 只分片并发**抓取后合并。通过官方 `ctx.connection.rpc.handle('/bullbear'...)` 通道暴露，另有 `search` 操作经腾讯 `smartbox` 按名称/代码解析证券。
+- **Client 半**（`src/client/index.js`）：轮询 RPC，用 `rateToAngle(avgRate, sensitivity)` 把组合速率夹到 `[-70, 70]` 度，牛头/熊头绕颈部旋转并位移；侧边面板列出 `entries` 并调用 `search` / `addSymbol` / `removeSymbol`。注册进 `shell.overlay` 槽位。
 
-窗口内 `mood` 判定：`pct > 0.05` 显示牛、`pct < -0.05` 显示熊、其余横盘。
+窗口内 `mood` 判定：组合 `avgPct > 0.05` 显示牛、`avgPct < -0.05` 显示熊、其余横盘。
 
 ## 免责声明
 

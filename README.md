@@ -7,9 +7,10 @@ A market-status pet docked at the bottom-left of the DeepSeek Harness Web UI. It
 ## Features
 
 - **Free real-time quotes**: Sina `hq.sinajs.cn` public endpoint, no login, no API key, fetched directly from Node, batched for multiple symbols.
-- **Bull/bear by direction**: an upside basket shows the bull (🐂), a downside shows the bear (🐻).
-- **Speed sets the pose**: the faster it rises, the higher the bull raises its head (angle proportional to rate); the faster it falls, the deeper the bear bows.
-- **Multiple symbols**: defaults to SSE Composite, SZ Component, ChiNext, Moutai, CATL; watchlist is persisted by the host to `.bull-bear-watchlist.json`.
+- **Portfolio-driven bull/bear**: the pet reflects your **whole basket's average** — an up portfolio shows the bull (🐂), a down one the bear (🐻).
+- **Speed sets the pose**: the faster the portfolio rises, the higher the bull raises its head (angle proportional to rate); the faster it falls, the deeper the bear bows.
+- **Watchlist panel**: click the pet to open a side panel listing every held symbol with its red/green change, search by name/code to add, and remove holdings.
+- **Scales to many symbols**: up to 200 symbols, fetched in chunks of 500 to stay under Sina's single-URL limit; watchlist is persisted by the host to `.bull-bear-watchlist.json`.
 - **Floating & collapsible**: registered into the official `shell.overlay` slot; click to collapse into a badge.
 
 ## Install
@@ -26,8 +27,9 @@ Restart `dsh web` once after adding, then refresh the page to see the bull/bear 
 
 ## Usage
 
-- **Watchlist**: edit the `symbols` array in `<workspace>/.bull-bear-watchlist.json` (e.g. `["sh000001","sz399001","sz300750"]`); the host reads it on startup and applies it.
-- **Collapse/expand**: click the pet to collapse into a `🐂` badge; click again to expand.
+- **Watchlist panel**: click the pet to open the side panel. It lists every held symbol with its change (red = up, green = down, matching A-share color conventions), shows the portfolio average at the bottom, lets you search stocks by name/code to add them, and remove any holding.
+- **Persistence**: edits are written to `<workspace>/.bull-bear-watchlist.json` and reapplied on startup; up to 200 symbols.
+- **Collapse/expand**: click the pet to toggle the panel; the pet can be collapsed separately.
 - **Refresh rate**: 5 seconds by default (see config below).
 
 ### Config
@@ -42,10 +44,10 @@ Defaults live in the `config` object in `src/index.js`; they can be adjusted at 
 
 ## How it works
 
-- **Host half** (`src/index.js`): every `refreshMs` it fetches Sina `hq.sinajs.cn` with native `fetch`, decodes GBK, computes each symbol's change vs previous close (`pct`) and the rate vs the previous sample (`rate`), then summarizes a representative quote (largest absolute `pct`) plus the average rate. Exposed via the official `ctx.connection.rpc.handle('/bullbear'...)` channel.
-- **Client half** (`src/client/index.js`): polls the RPC and uses `rateToAngle(rate, sensitivity)` to clamp the rate into `[-70, 70]` degrees; the bull/bear head rotates around the neck and translates. Registered into the `shell.overlay` slot.
+- **Host half** (`src/index.js`): every `refreshMs` it fetches Sina `hq.sinajs.cn` with native `fetch`, decoding GBK, computing each symbol's change vs previous close (`pct`) and rate vs the previous sample (`rate`), then the **portfolio average** (`avgPct`, `avgRate`). Because Sina rejects URLs with more than ~800 symbols (HTTP 431), the watchlist is fetched in **chunks of 500** merged together. Exposed via the official `ctx.connection.rpc.handle('/bullbear'...)` channel, plus a `search` action that resolves names/codes through Tencent's `smartbox` endpoint.
+- **Client half** (`src/client/index.js`): polls the RPC and uses `rateToAngle(avgRate, sensitivity)` to clamp the portfolio rate into `[-70, 70]` degrees; the bull/bear head rotates around the neck and translates. The side panel lists `entries` and calls `search`/`addSymbol`/`removeSymbol`. Registered into the `shell.overlay` slot.
 
-`mood` within a window: `pct > 0.05` shows the bull, `pct < -0.05` shows the bear, otherwise flat.
+`mood` within a window: portfolio `avgPct > 0.05` shows the bull, `avgPct < -0.05` the bear, otherwise flat.
 
 ## Disclaimer
 
