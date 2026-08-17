@@ -100,7 +100,7 @@ module.exports = {
           el('path', { d: `M${x} ${hipY} L${x} ${hipY + footLen}`, stroke: color, strokeWidth: 6, strokeLinecap: 'round' }),
         ])
       }
-      return el('svg', { width: 150, height: 130, viewBox: '0 0 150 130' }, [
+      return el('svg', { width: 150, height: 130, viewBox: '0 0 170 130' }, [
         // 身体(背后腿在身体下方, 绘制顺序: 后腿→身体→前腿? 简化为全部腿在身体前)
         el('path', { key: 'body', d: 'M20 95 C20 60 55 42 90 46 C120 49 140 66 138 92 C137 108 120 118 96 118 C60 118 20 110 20 95 Z', fill: '#d9a066' }),
         el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 108, footLen: 16, color: '#7c4a21' }))),
@@ -134,16 +134,28 @@ module.exports = {
           el('path', { d: `M${x} ${hipY} L${x} ${hipY + footLen}`, stroke: color, strokeWidth: 6, strokeLinecap: 'round' }),
         ])
       }
-      return el('svg', { width: 150, height: 130, viewBox: '0 0 150 130' }, [
-        el('path', { key: 'body', d: 'M22 98 C22 62 58 44 92 48 C122 51 140 70 136 96 C133 112 114 122 90 122 C56 122 22 112 22 98 Z', fill: '#6b4f3a' }),
+      return el('svg', { width: 150, height: 130, viewBox: '0 0 170 130' }, [
+        // 圆胖横长的身体(背高前略低)
+        el('path', { key: 'body', d: 'M22 98 C22 60 56 40 94 46 C122 49 140 64 138 92 C136 112 116 122 92 122 C54 122 22 110 22 98 Z', fill: '#6b4f3a' }),
         el('g', { key: 'legs' }, [0, 1, 2, 3].map((i) => el(Leg, { key: 'l' + i, x: legs[i], i: i, hipY: 108, footLen: 16, color: '#3a2a1c' }))),
-        el('path', { key: 'tail', d: 'M22 92 C8 88 4 98 10 102 C14 105 20 100 22 92 Z', fill: '#5a412f' }),
-        el('g', { key: 'head', transform: `translate(0 ${-headY}) rotate(${rot} 118 42)`, style: { transformOrigin: '118px 42px' } }, [
-          el('path', { key: 'headshape', d: 'M106 46 C104 30 112 20 126 20 C138 20 144 27 142 40 C140 51 132 56 120 55 C110 54 107 54 106 46 Z', fill: '#7d5c42' }),
-          el('circle', { key: 'ear1', cx: 116, cy: 20, r: 7, fill: '#5a412f' }),
-          el('circle', { key: 'ear2', cx: 133, cy: 20, r: 7, fill: '#5a412f' }),
-          el('circle', { key: 'eye', cx: 122, cy: 34, r: 2.6, fill: '#0c0c0c' }),
-          el('ellipse', { key: 'nose', cx: 138, cy: 40, rx: 4, ry: 3, fill: '#2a1c12' }),
+        // 短圆尾巴(左侧)
+        el('circle', { key: 'tail', cx: 14, cy: 92, r: 7, fill: '#5a412f' }),
+        el('g', { key: 'head', transform: `translate(0 ${-headY}) rotate(${rot} 138 32)`, style: { transformOrigin: '138px 32px' } }, [
+          // 脖子:细一些,从身体前肩托起源头
+          el('path', { key: 'neck', d: 'M136 52 C136 46 138 40 140 36', stroke: '#5a412f', strokeWidth: 12, strokeLinecap: 'round', fill: 'none' }),
+          // 圆胖头:整体前出超过身体右缘(x138),主体在身体轮廓外
+          el('ellipse', { key: 'headshape', cx: 140, cy: 30, rx: 20, ry: 17, fill: '#7d5c42' }),
+          // 大圆耳:后耳在头顶靠前侧,前耳更靠前(侧视前上)
+          el('circle', { key: 'earBack', cx: 128, cy: 16, r: 8, fill: '#4a3326' }),
+          el('circle', { key: 'earFront', cx: 146, cy: 15, r: 8, fill: '#5a412f' }),
+          // 短圆吻部:朝右前方突出,浅色
+          el('ellipse', { key: 'snout', cx: 158, cy: 34, rx: 7, ry: 9, fill: '#c19a72' }),
+          // 圆鼻头:吻端,圆润
+          el('ellipse', { key: 'nose', cx: 163, cy: 31, rx: 3.4, ry: 3, fill: '#2a1c12' }),
+          // 圆眼睛:侧视应靠前(靠近吻部一侧),不在正中心
+          el('circle', { key: 'eye', cx: 147, cy: 23, r: 3, fill: '#0c0c0c' }),
+          // 嘴角
+          el('path', { key: 'mouth', d: 'M153 39 C156 41 160 41 162 39', stroke: '#3a2a1c', strokeWidth: 1.4, fill: 'none', strokeLinecap: 'round' }),
         ]),
       ])
     }
