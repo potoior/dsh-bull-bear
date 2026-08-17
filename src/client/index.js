@@ -8,7 +8,8 @@ module.exports = {
     // ---- 样式 ----
     const styles = { insert(css) { const el = document.createElement('style'); el.textContent = css; document.head.appendChild(el) } }
     styles.insert(`
-.bullbear{position:fixed;left:16px;bottom:20px;z-index:1200;cursor:grab;user-select:none;pointer-events:auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));}
+@keyframes bullbear-breathe{0%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-4px) scale(1,0.985)}100%{transform:translateY(0) scale(1,1)}}
+.bullbear{position:fixed;left:16px;bottom:20px;z-index:1200;cursor:grab;user-select:none;pointer-events:auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));animation:bullbear-breathe 2.6s ease-in-out infinite;}
 .bullbear:active{cursor:grabbing;}
 .bullbear-badge{position:fixed;left:16px;bottom:20px;z-index:1201;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:12px;line-height:1.4;color:var(--dsw-alias-label-primary);pointer-events:auto;cursor:pointer;}
 .bullbear-up{color:var(--dsw-alias-state-error-primary);}
