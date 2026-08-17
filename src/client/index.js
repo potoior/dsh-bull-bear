@@ -16,6 +16,33 @@ module.exports = {
 .bullbear-flat{color:var(--dsw-alias-label-secondary);}
 .bullbear-name{font-size:11px;color:var(--dsw-alias-label-secondary);}
 .bullbear-tip{font-size:10px;color:var(--dsw-alias-label-secondary);}
+.bullbear-row-up{color:var(--dsw-alias-state-error-primary);}
+.bullbear-row-down{color:var(--dsw-alias-state-success-primary);}
+.bullbear-row-flat{color:var(--dsw-alias-label-primary);}
+.bullbear-error{font-size:10px;color:var(--dsw-alias-state-warning-primary);}
+.bullbear-panel{position:fixed;right:16px;top:16px;bottom:16px;width:320px;z-index:1300;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.35);overflow:hidden;pointer-events:auto;font-size:13px;color:var(--dsw-alias-label-primary);}
+.bullbear-panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);}
+.bullbear-panel-title{font-weight:600;}
+.bullbear-panel-close{background:none;border:none;cursor:pointer;font-size:14px;color:var(--dsw-alias-label-secondary);}
+.bullbear-panel-search{padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);}
+.bullbear-panel-input{width:100%;box-sizing:border-box;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:13px;}
+.bullbear-panel-input:focus{outline:none;border-color:var(--dsw-alias-focus-ring-border);}
+.bullbear-search-list{border-bottom:1px solid var(--dsw-alias-border-l1);max-height:220px;overflow:auto;}
+.bullbear-search-item{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;}
+.bullbear-search-item:hover{background:var(--dsw-alias-bg-layer-2);}
+.bullbear-search-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bullbear-search-item-add{font-size:11px;color:var(--dsw-alias-state-info-primary);margin-left:8px;flex-shrink:0;}
+.bullbear-panel-list{flex:1;overflow:auto;padding:4px 0;}
+.bullbear-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);}
+.bullbear-row-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+.bullbear-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.bullbear-row-pct{font-size:12px;font-weight:600;min-width:62px;text-align:right;}
+.bullbear-row-del{background:none;border:none;cursor:pointer;color:var(--dsw-alias-label-tertiary);font-size:12px;}
+.bullbear-row-del:hover{color:var(--dsw-alias-state-error-primary);}
+.bullbear-panel-empty{padding:20px;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:12px;}
+.bullbear-avg{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--dsw-alias-border-l1);}
+.bullbear-avg-label{font-size:11px;color:var(--dsw-alias-label-secondary);}
+.bullbear-avg-val{font-size:13px;font-weight:700;}
 `)
 
     function el(type, props, children) { return React.createElement(type, props, children) }
@@ -82,11 +109,102 @@ module.exports = {
       ])
     }
 
+    // ---- 浮动面板:自选股列表 + 搜索添加/删除 ----
+    function WatchlistPanel({ onClose, onChanged }) {
+      const [view, setView] = React.useState(null)
+      const [query, setQuery] = React.useState('')
+      const [results, setResults] = React.useState([])
+      const [panelError, setPanelError] = React.useState('')
+      const [busy, setBusy] = React.useState(false)
+
+      const fetchView = React.useCallback(async function () {
+        try {
+          const res = await call('get', {})
+          setView(res)
+        } catch (e) {
+          setPanelError(String((e && e.message) || e))
+        }
+      }, [])
+
+      React.useEffect(function () {
+        fetchView()
+      }, [fetchView])
+
+      // 输入防抖搜索
+      React.useEffect(function () {
+        if (!query.trim()) { setResults([]); return }
+        setBusy(true)
+        const id = setTimeout(async function () {
+          try {
+            const res = await call('search', { key: query.trim() })
+            setResults((res && res.results) || [])
+          } catch (e) {
+            setResults([])
+          } finally {
+            setBusy(false)
+          }
+        }, 300)
+        return function () { clearTimeout(id) }
+      }, [query])
+
+      async function add(symbol) {
+        try { await call('addSymbol', { symbol: symbol }); setQuery(''); setResults([]); fetchView(); onChanged && onChanged() }
+        catch (e) { setPanelError(String((e && e.message) || e)) }
+      }
+      async function remove(symbol) {
+        try { await call('removeSymbol', { symbol: symbol }); fetchView(); onChanged && onChanged() }
+        catch (e) { setPanelError(String((e && e.message) || e)) }
+      }
+
+      const empty = !(view && view.stats && view.stats.entries && view.stats.entries.length)
+      return el('div', { className: 'bullbear-panel' }, [
+        el('div', { key: 'head', className: 'bullbear-panel-head' }, [
+          el('span', { key: 't', className: 'bullbear-panel-title' }, '自选股'),
+          el('button', { key: 'c', className: 'bullbear-panel-close', onClick: function () { onClose() } }, '✕'),
+        ]),
+        el('div', { key: 'search', className: 'bullbear-panel-search' }, [
+          el('input', {
+            key: 'i', className: 'bullbear-panel-input', placeholder: '搜索股票(名称/代码)', value: query,
+            onChange: function (e) { setQuery(e.target.value) },
+          }),
+          busy ? el('div', { key: 'b', className: 'bullbear-tip' }, '搜索中…') : null,
+        ]),
+        results.length
+          ? el('div', { key: 'sr', className: 'bullbear-search-list' }, results.map(function (r, i) {
+            return el('div', { key: 's' + i, className: 'bullbear-search-item', onClick: function () { add(r.symbol) } }, [
+              el('span', { key: 'n', className: 'bullbear-search-item-name' }, r.name + ' ' + r.symbol),
+              el('span', { key: 'a', className: 'bullbear-search-item-add' }, '+ 添加'),
+            ])
+          }))
+          : null,
+        panelError ? el('div', { key: 'er', className: 'bullbear-error' }, panelError) : null,
+        empty
+          ? el('div', { key: 'em', className: 'bullbear-panel-empty' }, '暂无自选,上方搜索添加')
+          : el('div', { key: 'list', className: 'bullbear-panel-list' }, view.stats.entries.map(function (e, i) {
+            const cls = e.pct > 0.05 ? 'bullbear-row-up' : (e.pct < -0.05 ? 'bullbear-row-down' : 'bullbear-row-flat')
+            const text = (e.pct > 0 ? '+' : '') + Number(e.pct).toFixed(2) + '%'
+            return el('div', { key: 'r' + i, className: 'bullbear-row' }, [
+              el('span', { key: 'n', className: 'bullbear-row-name' }, e.name),
+              el('div', { key: 'rt', className: 'bullbear-row-right' }, [
+                el('span', { key: 'p', className: 'bullbear-row-pct ' + cls }, text),
+                el('button', { key: 'd', className: 'bullbear-row-del', title: '删除', onClick: function () { remove(e.symbol) } }, '✕'),
+              ]),
+            ])
+          })),
+        view && view.stats ? el('div', { key: 'avg', className: 'bullbear-avg' }, [
+          el('span', { key: 'l', className: 'bullbear-avg-label' }, '组合平均'),
+          el('span', { key: 'v', className: 'bullbear-avg-val ' + (view.stats.avgPct > 0.05 ? 'bullbear-row-up' : (view.stats.avgPct < -0.05 ? 'bullbear-row-down' : 'bullbear-row-flat')) },
+            (view.stats.avgPct > 0 ? '+' : '') + Number(view.stats.avgPct).toFixed(2) + '%'),
+        ]) : null,
+      ])
+    }
+
     // ---- 主组件：shell.overlay 宠物 ----
     function BullBearPet() {
       const [stat, setStat] = React.useState(null)
       const [sensitivity, setSensitivity] = React.useState(1)
       const [visible, setVisible] = React.useState(true)
+      const [panel, setPanel] = React.useState(false)
       const [pos, setPos] = React.useState(null)
       const [error, setError] = React.useState('')
 
@@ -108,33 +226,38 @@ module.exports = {
 
       if (!visible) return el('button', { className: 'bullbear-badge', onClick: function () { setVisible(true) } }, '🐂')
 
-      // 归一化：涨跌方向 + 速率
-      let angle = 0, mood = 'flat', focusName = ''
-      if (stat && stat.focus) {
-        focusName = stat.focus.name + ' ' + Number(stat.focus.last).toFixed(2)
-        const r = stat.avgRate || stat.focus.rate || 0
+      // 归一化：组合平均涨跌驱动牛/熊与头角度
+      let angle = 0, mood = 'flat'
+      if (stat && stat.entries && stat.entries.length) {
+        const r = stat.avgRate || 0
         angle = rateToAngle(r, sensitivity)
-        const pct = stat.focus.pct
-        mood = pct > 0.05 ? 'up' : (pct < -0.05 ? 'down' : 'flat')
+        const avg = stat.avgPct
+        mood = avg > 0.05 ? 'up' : (avg < -0.05 ? 'down' : 'flat')
       }
 
-      const pctText = stat && stat.focus ? (stat.focus.pct > 0 ? '+' : '') + Number(stat.focus.pct).toFixed(2) + '%' : '--'
+      const pctText = stat && stat.avgPct !== undefined ? (stat.avgPct > 0 ? '+' : '') + Number(stat.avgPct).toFixed(2) + '%' : '--'
 
-      return el('div', {
-        className: 'bullbear',
-        style: pos ? { left: pos.x, top: pos.y } : null,
-        onClick: function () { setVisible(false) },
-        title: '点击收起',
-      }, [
-        mood === 'down'
-          ? el(Bear, { key: 'bear', angle: angle })
-          : el(BullFox, { key: 'bull', angle: angle }),
-        el('div', { key: 'badge', className: 'bullbear-badge' + (mood === 'up' ? ' bullbear-up' : (mood === 'down' ? ' bullbear-down' : ' bullbear-flat')) }, [
-          el('span', { key: 'nm', className: 'bullbear-name' }, focusName || '行情'),
-          el('span', { key: 'pv', className: 'bullbear-val' }, pctText),
-          el('span', { key: 'tip', className: 'bullbear-tip' }, mood === 'up' ? '牛抬头' : (mood === 'down' ? '熊低头' : '横盘')),
+      return el('div', {}, [
+        el('div', {
+          key: 'pet', className: 'bullbear',
+          style: pos ? { left: pos.x, top: pos.y } : null,
+          onClick: function () { setPanel(!panel) },
+          title: '点击打开自选面板',
+        }, [
+          mood === 'down'
+            ? el(Bear, { key: 'bear', angle: angle })
+            : el(BullFox, { key: 'bull', angle: angle }),
+          el('div', { key: 'badge', className: 'bullbear-badge' + (mood === 'up' ? ' bullbear-up' : (mood === 'down' ? ' bullbear-down' : ' bullbear-flat')) }, [
+            el('span', { key: 'pv', className: 'bullbear-val' }, pctText),
+            el('span', { key: 'tip', className: 'bullbear-tip' }, mood === 'up' ? '组合·牛抬头' : (mood === 'down' ? '组合·熊低头' : '组合·横盘')),
+          ]),
+          error ? el('div', { key: 'err', className: 'bullbear-error', style: { position: 'absolute' } }, error) : null,
         ]),
-        error ? el('div', { key: 'err', className: 'bullbear-tip', style: { position: 'absolute' } }, error) : null,
+        panel ? el(WatchlistPanel, {
+          key: 'panel',
+          onClose: function () { setPanel(false) },
+          onChanged: refresh,
+        }) : null,
       ])
     }
 

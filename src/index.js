@@ -2,6 +2,10 @@ export default {
   apply(ctx) {
     const DEFAULT_WATCHLIST = ['sh000001', 'sz399001', 'sz399006', 'sh600519', 'sz300750']
     const DEFAULT_REFRESH_MS = 5000
+    // 新浪批量行情单个 URL 超过约 800 只会返回 HTTP 431(请求头过大),
+    // 因此按 500 只分片并发抓取,支持任意多自选。
+    const CHUNK_SIZE = 500
+    const MAX_SYMBOLS = 200
 
     let watchlist = null
     let intervalId = null
@@ -29,7 +33,7 @@ export default {
           const text = await fs.readText(target)
           const parsed = JSON.parse(text)
           if (parsed && Array.isArray(parsed.symbols) && parsed.symbols.length) {
-            watchlist = { symbols: parsed.symbols.slice(0, 50) }
+            watchlist = { symbols: parsed.symbols.slice(0, MAX_SYMBOLS) }
           }
         } catch (e) { /* 首次运行或未写权限时用默认列表 */ }
       }
@@ -100,6 +104,43 @@ export default {
       return quotes
     }
 
+    // 分片并发抓取:新浪单 URL 约 800 只是上限,超过则报 HTTP 431,
+    // 于是按 CHUNK_SIZE 切片、Promise.all 并发,汇总去重返回。
+    async function fetchQuotesBulk(symbols) {
+      const uniq = Array.from(new Set(symbols))
+      let results = []
+      for (let i = 0; i < uniq.length; i += CHUNK_SIZE) {
+        const chunk = uniq.slice(i, i + CHUNK_SIZE)
+        results = results.concat(await fetchQuotes(chunk))
+      }
+      return results
+    }
+
+    // ---- 腾讯 smartbox 模糊搜索(名字/拼音/代码 → 候选证券) ----
+    async function searchSecurities(key) {
+      const q = String(key || '').trim()
+      if (!q) return []
+      const url = 'https://smartbox.gtimg.cn/s3/?v=2&q=' + encodeURIComponent(q) + '&t=all'
+      const res = await fetch(url, {
+        headers: { Referer: 'https://gu.qq.com', 'User-Agent': 'Mozilla/5.0' },
+      })
+      if (!res.ok) return []
+      const text = await res.text()
+      const m = text.match(/v_hint="(.*)"/)
+      if (!m || !m[1]) return []
+      const out = []
+      for (const item of m[1].split('^')) {
+        const f = item.split('~')
+        if (f.length < 5) continue
+        const exch = f[0]
+        // 只保留 A 股(GP-A/指数/基金按需),带正确前缀的代码
+        const sym = (exch === 'sh' || exch === 'sz') ? exch + f[1] : ''
+        if (!sym) continue
+        out.push({ symbol: sym, name: f[2], exchange: exch, type: f[4] })
+      }
+      return out
+    }
+
     // 计算涨跌幅度和速率（相对上一次采样的变化，用于驱动牛/熊抬头角度）
     function computeStats(quotes) {
       const prevMap = new Map()
@@ -148,7 +189,7 @@ export default {
       try {
         const wl = await loadWatchlist()
         if (!wl.symbols.length) return
-        const quotes = await fetchQuotes(wl.symbols)
+        const quotes = await fetchQuotesBulk(wl.symbols)
         if (!quotes.length) { stats = null; return }
         stats = computeStats(quotes)
         lastQuotes = quotes
@@ -187,7 +228,7 @@ export default {
         const symbols = Array.isArray(args.symbols)
           ? args.symbols.map(normalizeSymbol).filter(Boolean) : []
         const wl = await loadWatchlist()
-        wl.symbols = symbols.slice(0, 50)
+        wl.symbols = symbols.slice(0, MAX_SYMBOLS)
         watchlist = wl
         await saveWatchlist()
         refresh()
@@ -197,6 +238,7 @@ export default {
         const sym = normalizeSymbol(args.symbol)
         if (!sym) throw new Error('无效代码: ' + args.symbol)
         const wl = await loadWatchlist()
+        if (wl.symbols.length >= MAX_SYMBOLS) throw new Error('自选已满 (' + MAX_SYMBOLS + ' 只)')
         if (wl.symbols.indexOf(sym) === -1) { wl.symbols.push(sym); watchlist = wl; await saveWatchlist() }
         refresh()
         return { symbols: wl.symbols }
@@ -212,6 +254,10 @@ export default {
       async setSensitivity(args) {
         config.sensitivity = Math.min(Math.max(parseFloat(args.sensitivity) || 1, 0.1), 5)
         return { sensitivity: config.sensitivity }
+      },
+      async search(args) {
+        const items = await searchSecurities(args.key)
+        return { results: items.slice(0, 10) }
       },
       async setRefresh(args) {
         config.refreshMs = Math.min(Math.max(parseInt(args.refreshMs, 10) || 5000, 1000), 60000)
