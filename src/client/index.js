@@ -15,7 +15,7 @@ module.exports = {
 .bullbear-dust{position:absolute;bottom:0;width:40px;height:26px;opacity:0;pointer-events:none;animation:bullbear-dustpuff 0.7s ease-out infinite;background:radial-gradient(ellipse at bottom,rgba(160,140,110,.5),transparent 70%);}
 @keyframes bullbear-dustpuff{0%{transform:translateX(0) scale(.3);opacity:0}30%{opacity:.7}100%{transform:translateX(-34px) translateY(-10px) scale(1.3);opacity:0}}
 .bullbear-badge{position:fixed;left:16px;bottom:20px;z-index:1201;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:12px;line-height:1.4;color:var(--dsw-alias-label-primary);pointer-events:auto;cursor:pointer;}
-.bullbear-hand{display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 3px 10px rgba(0,0,0,.25);font-size:12px;font-weight:700;line-height:1.3;pointer-events:none;}
+.bullbear-hand{display:block;box-sizing:border-box;width:100%;height:100%;text-align:center;white-space:nowrap;padding:2px 9px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 3px 10px rgba(0,0,0,.25);font-size:12px;font-weight:700;line-height:1.3;pointer-events:none;}
 .bullbear-up{color:var(--dsw-alias-state-error-primary);}
 .bullbear-down{color:var(--dsw-alias-state-success-primary);}
 .bullbear-flat{color:var(--dsw-alias-label-secondary);}
@@ -88,11 +88,17 @@ module.exports = {
       return a
     }
 
-    // ---- 手持徽章:渲染进手臂 transform 组的 foreignObject ----
-    // x/y/w/h 是 viewBox 坐标;内容为紧凑圆角胶囊(%,配合 bullbear-hand/bullbear-up|down|flat)
+    // ---- 手持徽章:纯 SVG 圆角胶囊(rect+text),完全跟随手臂 transform ----
+    // 用 SVG 原生元素而非 foreignObject,避免旋转下 HTML 填充/渲染位置不可靠导致下方露出身体
     function HandBadge({ x, y, w, h, clsClass, text }) {
-      const passthrough = { x: x, y: y, width: w, height: h }
-      return el('foreignObject', passthrough, el('div', { className: 'bullbear-hand ' + (clsClass || '') }, text))
+      // A 股配色:红涨绿跌
+      const fillMap = { 'bullbear-up': '#ec1313', 'bullbear-down': '#16a34a', 'bullbear-flat': '#61666b' }
+      const fill = fillMap[clsClass] || '#61666b'
+      const r = 4
+      return el('g', null, [
+        el('rect', { x: x, y: y, width: w, height: h, rx: r, ry: r, fill: '#ffffff', stroke: 'rgba(0,0,0,0.12)', strokeWidth: 1 }),
+        el('text', { x: x + w / 2, y: y + h / 2 + 4, textAnchor: 'middle', fontSize: 12, fontWeight: 700, fill: fill, style: { pointerEvents: 'none' } }, text),
+      ])
     }
 
     // ---- 牛（SVG）----
@@ -134,9 +140,9 @@ module.exports = {
           el('path', { d: 'M102 80 L118 62', stroke: '#b87333', strokeWidth: 7, strokeLinecap: 'round' }),
           el('circle', { key: 'paw', cx: 120, cy: 60, r: 7, fill: '#c9853f' }),
         ]),
-        // 手持徽章:单独放最上层(同前臂 transform 跟随摆动),避免被头/身体遮挡
+        // 手持徽章:水平放置在旋转后的手位置上方(不跟随旋转,避免歪斜露出背景)
         badgeText !== undefined
-          ? el('g', { key: 'heldbadge', transform: `rotate(${armSwing} 102 80)` }, el(HandBadge, { key: 'hb', x: 88, y: 38, w: 64, h: 18, clsClass: badgeCls, text: badgeText }))
+          ? el(HandBadge, { key: 'hb', x: (102 + (18 * Math.cos(armSwing * Math.PI / 180) - (-20) * Math.sin(armSwing * Math.PI / 180))) - 32, y: (80 + (18 * Math.sin(armSwing * Math.PI / 180) + (-20) * Math.cos(armSwing * Math.PI / 180))) - 22, w: 64, h: 18, clsClass: badgeCls, text: badgeText })
           : null,
       ])
     }
@@ -205,9 +211,9 @@ module.exports = {
           // 嘴巴
           el('path', { key: 'mouth', d: 'M142 50 C146 53 152 53 155 50', stroke: '#3a2a1c', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round' }),
         ]),
-        // 手持徽章:单独放最上层(同前臂 transform 跟随摆动),避免被头/身体遮挡
+        // 手持徽章:水平放置在旋转后的手位置上方(不跟随旋转,避免歪斜露出背景)
         badgeText !== undefined
-          ? el('g', { key: 'heldbadge', transform: `rotate(${armSwing} 116 82)` }, el(HandBadge, { key: 'hb', x: 88, y: 66, w: 76, h: 18, clsClass: badgeCls, text: badgeText }))
+          ? el(HandBadge, { key: 'hb', x: (116 + (10 * Math.cos(armSwing * Math.PI / 180) - 20 * Math.sin(armSwing * Math.PI / 180))) - 38, y: (82 + (10 * Math.sin(armSwing * Math.PI / 180) + 20 * Math.cos(armSwing * Math.PI / 180))) - 26, w: 76, h: 18, clsClass: badgeCls, text: badgeText })
           : null,
       ])
     }
