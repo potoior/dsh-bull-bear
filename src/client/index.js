@@ -129,14 +129,15 @@ module.exports = {
           // 鼻孔
           el('circle', { key: 'noz', cx: 140, cy: 40, r: 1.6, fill: '#1f1f1f' }),
         ]),
-        // 前臂(举着徽章):从肩部伸向前,末端圆爪
+        // 前臂(从肩部伸向前,末端圆爪)
         el('g', { key: 'armfront', transform: `rotate(${armSwing} 102 80)` }, [
           el('path', { d: 'M102 80 L118 62', stroke: '#b87333', strokeWidth: 7, strokeLinecap: 'round' }),
           el('circle', { key: 'paw', cx: 120, cy: 60, r: 7, fill: '#c9853f' }),
-          badgeText !== undefined
-            ? el(HandBadge, { key: 'hb', x: 88, y: 38, w: 64, h: 18, clsClass: badgeCls, text: badgeText })
-            : null,
         ]),
+        // 手持徽章:单独放最上层(同前臂 transform 跟随摆动),避免被头/身体遮挡
+        badgeText !== undefined
+          ? el('g', { key: 'heldbadge', transform: `rotate(${armSwing} 102 80)` }, el(HandBadge, { key: 'hb', x: 88, y: 38, w: 64, h: 18, clsClass: badgeCls, text: badgeText }))
+          : null,
       ])
     }
 
@@ -180,13 +181,10 @@ module.exports = {
           el(Line, { key: 'a', x1: 74, y1: 84, x2: 62, y2: 104, w: 11, color: '#8a4a28' }),
           el('circle', { key: 'paw', cx: 62, cy: 104, r: 7, fill: '#8a4a28' }),
         ]),
-        // 前臂(向前摆,举着徽章)
+        // 前臂(向前摆)
         el('g', { key: 'armfront', transform: `rotate(${armSwing} 116 82)` }, [
           el(Line, { key: 'a', x1: 112, y1: 82, x2: 126, y2: 102, w: 12, color: '#a25430' }),
           el('circle', { key: 'paw', cx: 126, cy: 102, r: 7, fill: '#a25430' }),
-          badgeText !== undefined
-            ? el(HandBadge, { key: 'hb', x: 88, y: 66, w: 76, h: 18, clsClass: badgeCls, text: badgeText })
-            : null,
         ]),
         // 短尾(左)
         el('circle', { key: 'tail', cx: 52, cy: 104, r: 6, fill: '#6b3c22' }),
@@ -207,6 +205,10 @@ module.exports = {
           // 嘴巴
           el('path', { key: 'mouth', d: 'M142 50 C146 53 152 53 155 50', stroke: '#3a2a1c', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round' }),
         ]),
+        // 手持徽章:单独放最上层(同前臂 transform 跟随摆动),避免被头/身体遮挡
+        badgeText !== undefined
+          ? el('g', { key: 'heldbadge', transform: `rotate(${armSwing} 116 82)` }, el(HandBadge, { key: 'hb', x: 88, y: 66, w: 76, h: 18, clsClass: badgeCls, text: badgeText }))
+          : null,
       ])
     }
 
