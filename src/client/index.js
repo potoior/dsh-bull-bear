@@ -461,6 +461,10 @@ module.exports = {
       }
 
       const pctText = stat && stat.avgPct !== undefined ? (stat.avgPct > 0 ? '+' : '') + Number(stat.avgPct).toFixed(2) + '%' : '--'
+      // 徽章颜色遵循 A 股配色(红涨绿跌),独立于牛/熊切换的 mood 阈值:只要赚即红、跌即绿
+      const badgeCls = (stat && stat.avgPct !== undefined)
+        ? (stat.avgPct > 0 ? 'bullbear-up' : (stat.avgPct < 0 ? 'bullbear-down' : 'bullbear-flat'))
+        : 'bullbear-flat'
 
       // 特技:跃起 + 甩头 + 尘土爆发
       const stuntUp = stunt > 0 ? Math.sin(Math.min(stunt, 1) * Math.PI) * 40 * (0.6 + vigor * 0.8) : 0
@@ -492,8 +496,8 @@ module.exports = {
           title: '拖动移动 · 点击展开自选面板',
         }, [
           mood === 'down'
-            ? el(Bear, { key: 'bear', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34, badgeCls: 'bullbear-down', badgeText: pctText })
-            : el(BullFox, { key: 'bull', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34, badgeCls: mood === 'up' ? 'bullbear-up' : 'bullbear-flat', badgeText: pctText }),
+            ? el(Bear, { key: 'bear', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34, badgeCls: badgeCls, badgeText: pctText })
+            : el(BullFox, { key: 'bull', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34, badgeCls: badgeCls, badgeText: pctText }),
           error ? el('div', { key: 'err', className: 'bullbear-error', style: { position: 'absolute' } }, error) : null,
           el('div', { key: 'ground', className: 'bullbear-ground' }),
           dustOn ? el('div', { key: 'dust', className: 'bullbear-dust', style: dustStyle }) : null,

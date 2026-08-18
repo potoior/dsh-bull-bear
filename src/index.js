@@ -128,6 +128,8 @@ export default {
       const text = await res.text()
       const m = text.match(/v_hint="(.*)"/)
       if (!m || !m[1]) return []
+      // smartbox 把中文名转义成字面 \uXXXX 序列,需还原为真实字符(仅处理存在的转义,真实中文原样保留)
+      const decodeName = (s) => String(s).replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
       const out = []
       for (const item of m[1].split('^')) {
         const f = item.split('~')
@@ -136,7 +138,7 @@ export default {
         // 只保留 A 股(GP-A/指数/基金按需),带正确前缀的代码
         const sym = (exch === 'sh' || exch === 'sz') ? exch + f[1] : ''
         if (!sym) continue
-        out.push({ symbol: sym, name: f[2], exchange: exch, type: f[4] })
+        out.push({ symbol: sym, name: decodeName(f[2]), exchange: exch, type: f[4] })
       }
       return out
     }
