@@ -15,6 +15,7 @@ module.exports = {
 .bullbear-dust{position:absolute;bottom:0;width:40px;height:26px;opacity:0;pointer-events:none;animation:bullbear-dustpuff 0.7s ease-out infinite;background:radial-gradient(ellipse at bottom,rgba(160,140,110,.5),transparent 70%);}
 @keyframes bullbear-dustpuff{0%{transform:translateX(0) scale(.3);opacity:0}30%{opacity:.7}100%{transform:translateX(-34px) translateY(-10px) scale(1.3);opacity:0}}
 .bullbear-badge{position:fixed;left:16px;bottom:20px;z-index:1201;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:12px;line-height:1.4;color:var(--dsw-alias-label-primary);pointer-events:auto;cursor:pointer;}
+.bullbear-hand{display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:999px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 3px 10px rgba(0,0,0,.25);font-size:12px;font-weight:700;line-height:1.3;pointer-events:none;}
 .bullbear-up{color:var(--dsw-alias-state-error-primary);}
 .bullbear-down{color:var(--dsw-alias-state-success-primary);}
 .bullbear-flat{color:var(--dsw-alias-label-secondary);}
@@ -87,13 +88,22 @@ module.exports = {
       return a
     }
 
+    // ---- 手持徽章:渲染进手臂 transform 组的 foreignObject ----
+    // x/y/w/h 是 viewBox 坐标;内容为紧凑圆角胶囊(%,配合 bullbear-hand/bullbear-up|down|flat)
+    function HandBadge({ x, y, w, h, clsClass, text }) {
+      const passthrough = { x: x, y: y, width: w, height: h }
+      return el('foreignObject', passthrough, el('div', { className: 'bullbear-hand ' + (clsClass || '') }, text))
+    }
+
     // ---- 牛（SVG）----
-    function BullFox({ angle, phase, swing }) {
+    function BullFox({ angle, phase, swing, badgeCls, badgeText }) {
       // angle>0 抬头（看涨），angle<0 低头。头围绕颈部旋转 + 微位移增强表现
       const rot = angle * 0.6      // 旋转主导
       const headY = -angle * 0.9   // 平移辅助
       // 每条腿的支点 x 坐标
       const legs = [40, 64, 88, 106]
+      // 前臂(举着徽章):绕肩 (102,80) 摆动,幅度小,保持在前方
+      const armSwing = Math.sin(phase * Math.PI * 2) * 10
       function Leg({ x, i, hipY, footLen, color }) {
         const a = legGeom(phase, i, swing)
         return el('g', { transform: `rotate(${a} ${x} ${hipY})` }, [
@@ -119,11 +129,19 @@ module.exports = {
           // 鼻孔
           el('circle', { key: 'noz', cx: 140, cy: 40, r: 1.6, fill: '#1f1f1f' }),
         ]),
+        // 前臂(举着徽章):从肩部伸向前,末端圆爪
+        el('g', { key: 'armfront', transform: `rotate(${armSwing} 102 80)` }, [
+          el('path', { d: 'M102 80 L118 62', stroke: '#b87333', strokeWidth: 7, strokeLinecap: 'round' }),
+          el('circle', { key: 'paw', cx: 120, cy: 60, r: 7, fill: '#c9853f' }),
+          badgeText !== undefined
+            ? el(HandBadge, { key: 'hb', x: 88, y: 38, w: 64, h: 18, clsClass: badgeCls, text: badgeText })
+            : null,
+        ]),
       ])
     }
 
     // ---- 熊(SVG)---- 直立拟人奔跑版(熊大风格):红棕身、白胸带、圆头大鼻、绿眼红耳
-    function Bear({ angle, phase, swing }) {
+    function Bear({ angle, phase, swing, badgeCls, badgeText }) {
       const rot = angle * 0.5
       const headY = angle * 0.8
       // 腿部摆动角:两条腿反相(跑步)
@@ -162,10 +180,13 @@ module.exports = {
           el(Line, { key: 'a', x1: 74, y1: 84, x2: 62, y2: 104, w: 11, color: '#8a4a28' }),
           el('circle', { key: 'paw', cx: 62, cy: 104, r: 7, fill: '#8a4a28' }),
         ]),
-        // 前臂(向前摆)
+        // 前臂(向前摆,举着徽章)
         el('g', { key: 'armfront', transform: `rotate(${armSwing} 116 82)` }, [
           el(Line, { key: 'a', x1: 112, y1: 82, x2: 126, y2: 102, w: 12, color: '#a25430' }),
           el('circle', { key: 'paw', cx: 126, cy: 102, r: 7, fill: '#a25430' }),
+          badgeText !== undefined
+            ? el(HandBadge, { key: 'hb', x: 88, y: 66, w: 76, h: 18, clsClass: badgeCls, text: badgeText })
+            : null,
         ]),
         // 短尾(左)
         el('circle', { key: 'tail', cx: 52, cy: 104, r: 6, fill: '#6b3c22' }),
@@ -471,12 +492,8 @@ module.exports = {
           title: '拖动移动 · 点击展开自选面板',
         }, [
           mood === 'down'
-            ? el(Bear, { key: 'bear', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34 })
-            : el(BullFox, { key: 'bull', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34 }),
-          el('div', { key: 'badge', className: 'bullbear-badge' + (mood === 'up' ? ' bullbear-up' : (mood === 'down' ? ' bullbear-down' : ' bullbear-flat')) }, [
-            el('span', { key: 'pv', className: 'bullbear-val' }, pctText),
-            el('span', { key: 'tip', className: 'bullbear-tip' }, mood === 'up' ? '组合·牛抬头' : (mood === 'down' ? '组合·熊低头' : '组合·横盘')),
-          ]),
+            ? el(Bear, { key: 'bear', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34, badgeCls: 'bullbear-down', badgeText: pctText })
+            : el(BullFox, { key: 'bull', angle: angle + headWhip, phase: runT, swing: 18 + vigor * 34, badgeCls: mood === 'up' ? 'bullbear-up' : 'bullbear-flat', badgeText: pctText }),
           error ? el('div', { key: 'err', className: 'bullbear-error', style: { position: 'absolute' } }, error) : null,
           el('div', { key: 'ground', className: 'bullbear-ground' }),
           dustOn ? el('div', { key: 'dust', className: 'bullbear-dust', style: dustStyle }) : null,
