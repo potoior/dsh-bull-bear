@@ -1,17 +1,19 @@
 # dsh-bull-bear
 
-> Bull & bear market pet for DeepSeek Harness: the faster the market rises, the higher the bull raises its head; the faster it falls, the deeper the bear lowers its head.
+> Bull & bear market pet for DeepSeek Harness: the closer your portfolio climbs toward a 20% gain, the harder the bull sprints; the deeper it falls, the more theatrically the bear tumbles.
 
-A market-status pet docked at the bottom-left of the DeepSeek Harness Web UI. It maps the **rate of change** of free Sina real-time quotes onto an SVG **bull raising its head / bear lowering its head**. Purely for fun — not investment advice.
+A market-status pet in the bottom-left corner of the DeepSeek Harness Web UI. It reads **free, real-time A-share quotes** and turns your watchlist's average move into a **running bull or bear** that charges harder the more the market moves. Purely for fun — not investment advice.
 
 ## Features
 
-- **Free real-time quotes**: Sina `hq.sinajs.cn` public endpoint, no login, no API key, fetched directly from Node, batched for multiple symbols.
-- **Portfolio-driven bull/bear**: the pet reflects your **whole basket's average** — an up portfolio shows the bull (🐂), a down one the bear (🐻).
-- **Speed sets the pose**: the faster the portfolio rises, the higher the bull raises its head (angle proportional to rate); the faster it falls, the deeper the bear bows.
-- **Watchlist panel**: click the pet to open a side panel listing every held symbol with its red/green change, search by name/code to add, and remove holdings.
-- **Scales to many symbols**: up to 200 symbols, fetched in chunks of 500 to stay under Sina's single-URL limit; watchlist is persisted by the host to `.bull-bear-watchlist.json`.
-- **Floating & collapsible**: registered into the official `shell.overlay` slot; click to collapse into a badge.
+- **Free real-time quotes**: Sina `hq.sinajs.cn` public endpoint — no login, no API key, fetched directly from Node.
+- **Portfolio-driven mood**: the pet follows your **whole basket's average**. Gain → bull (🐂); fall → bear (🐻); flat → calm.
+- **Dramatic, vigor-driven running**: the closer the average move gets to a **20% gain**, the faster the pet sprints, the wider its limbs swing, the higher it jumps and the denser the dust it kicks up. Horizontal when flat, furious when the market runs.
+- **Anthropomorphic designs**: a running bull, and a Boonie-Bears-style standing bear (red-brown fur, white chest band, big nose, green eyes, red ears).
+- **Draggable & collapsible**: grab the pet and move it anywhere; click (without dragging) to toggle the watchlist panel.
+- **Watchlist panel**: brick-and-mortar list of every held symbol with red/green change, portfolio average at the bottom, and search-by-name/code to add or remove holdings.
+- **🏁 Market race**: a "race track" section where each holding runs a bar whose length is proportional to its change — the biggest mover fills its lane, the rest scale relative to it.
+- **Scales to many symbols**: up to 200 held symbols, fetched in chunks of 500 to stay under Sina's single-URL limit.
 
 ## Install
 
@@ -23,14 +25,19 @@ dsh plugin --profile web add dsh-bull-bear
 dsh plugin --profile web add /path/to/dsh-bull-bear
 ```
 
-Restart `dsh web` once after adding, then refresh the page to see the bull/bear pet.
+Restart `dsh web` once after adding, then refresh the page to see the pet.
 
 ## Usage
 
-- **Watchlist panel**: click the pet to open the side panel. It lists every held symbol with its change (red = up, green = down, matching A-share color conventions), shows the portfolio average at the bottom, lets you search stocks by name/code to add them, and remove any holding.
-- **Persistence**: edits are written to `<workspace>/.bull-bear-watchlist.json` and reapplied on startup; up to 200 symbols.
-- **Collapse/expand**: click the pet to toggle the panel; the pet can be collapsed separately.
-- **Refresh rate**: 5 seconds by default (see config below).
+- **Drag**: press and hold the pet with the mouse, then move it anywhere in the window; release to leave it there. Position is kept for the session.
+- **Open / close the panel**: click the pet without dragging to toggle the watchlist panel on the right.
+- **Watchlist panel**:
+  - Each row shows the stock's name and its change in A-share colors — **red = up, green = down**.
+  - The **search box** accepts a name or code (e.g. `茅台`, `600519`); matching stocks appear below and one click adds them.
+  - The `✕` button on a row removes that holding.
+  - The **portfolio average** (`组合平均`) is shown at the bottom, also in red/green.
+  - Edits are written to `<workspace>/.bull-bear-watchlist.json` and reapplied on startup (up to 200 symbols).
+- **🏁 Market race**: the uppermost section lists your holdings sorted by change, each with a lane whose filled width is **proportional to the biggest mover** — the leading stock fills 100%, the rest scale by their ratio. The row marks show the top 6 movers.
 
 ### Config
 
@@ -44,8 +51,8 @@ Defaults live in the `config` object in `src/index.js`; they can be adjusted at 
 
 ## How it works
 
-- **Host half** (`src/index.js`): every `refreshMs` it fetches Sina `hq.sinajs.cn` with native `fetch`, decoding GBK, computing each symbol's change vs previous close (`pct`) and rate vs the previous sample (`rate`), then the **portfolio average** (`avgPct`, `avgRate`). Because Sina rejects URLs with more than ~800 symbols (HTTP 431), the watchlist is fetched in **chunks of 500** merged together. Exposed via the official `ctx.connection.rpc.handle('/bullbear'...)` channel, plus a `search` action that resolves names/codes through Tencent's `smartbox` endpoint.
-- **Client half** (`src/client/index.js`): polls the RPC and uses `rateToAngle(avgRate, sensitivity)` to clamp the portfolio rate into `[-70, 70]` degrees; the bull/bear head rotates around the neck and translates. The side panel lists `entries` and calls `search`/`addSymbol`/`removeSymbol`. Registered into the `shell.overlay` slot.
+- **Host half** (`src/index.js`): every `refreshMs` it fetches Sina `hq.sinajs.cn` with native `fetch`, decodes GBK, computes each symbol's change vs previous close (`pct`) and its rate, then the **portfolio average** (`avgPct`, `avgRate`). Because Sina rejects URLs over ~800 symbols (HTTP 431), the watchlist is fetched in **chunks of 500**. A `search` action resolves names/codes through Tencent's `smartbox` endpoint. All of it is exposed over the official `ctx.connection.rpc.handle('/bullbear'...)` channel.
+- **Client half** (`src/client/index.js`): polls the RPC, derives a **vigor** (`|avgPct| / 20`, capped) that scales running speed, limb swing, jump height and dust; an animation loop drives the limbs by frame. The panel and race track read the same data. Registered into the `shell.overlay` slot.
 
 `mood` within a window: portfolio `avgPct > 0.05` shows the bull, `avgPct < -0.05` the bear, otherwise flat.
 

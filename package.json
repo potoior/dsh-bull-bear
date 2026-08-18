@@ -1,7 +1,7 @@
 {
   "name": "dsh-bull-bear",
   "version": "0.1.0",
-  "description": "牛熊行情宠物 — DeepSeek Harness 实时行情状态宠物：涨得越快牛头抬得越高，跌得越快熊头低得越深。免费新浪实时行情，免登录。",
+  "description": "牛熊行情宠物 — DeepSeek Harness 实时行情桌宠：由自选组合平均涨跌驱动，越接近收益 20% 跑得越猛；可拖动、自选面板、行情赛跑。免费新浪实时行情，免登录。",
   "keywords": [
     "dsh",
     "dsh-plugin",
